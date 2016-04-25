@@ -1,0 +1,52 @@
+# server listen addr
+addr : 0.0.0.0:9696
+
+# server user and password
+user :  root
+password : Initial0
+
+# if set log_path, the sql log will write into log_path/sql.log,the system log
+# will write into log_path/sys.log
+#log_path : /Users/flike/log
+
+# log level[debug|info|warn|error],default error
+log_level : debug
+
+# if set log_sql(on|off) off,the sql log will not output
+#log_sql: off
+
+# only log the query that take more than slow_log_time ms
+#slow_log_time : 100
+
+# blacklist sql file path
+# all these sqls in this file will been forbidden by kingshard
+#blacklist_sql_file: /Users/flike/blacklist
+
+# only allow this ip list ip to connect kingshard
+#allow_ips: 127.0.0.1
+
+# the charset of kingshard, if you don't set this item
+# the default charset of kingshard is utf8.
+#proxy_charset: gbk
+
+# node is an agenda for real remote mysql server.
+nodes :
+-
+    name : node1
+
+    # default max conns for mysql server
+    max_conns_limit : 32
+
+    # master user and password
+    user :  root
+    password : Initial0
+
+    # master represents a real mysql master server
+    master : mycnpvgvb1ep016.sapanywhere.sap.corp:3306
+
+    # slave represents a real mysql salve server,and the number after '@' is
+    # read load weight of this slave.
+    slaveuser : root
+    slavepassword : Initial0
+    slave : cnpvgvb1ep118.pvgl.sap.corp:3306
+    down_after_noalive : 32
