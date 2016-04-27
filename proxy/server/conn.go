@@ -17,7 +17,6 @@ package server
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"net"
 	"runtime"
 	"sync"
@@ -57,10 +56,6 @@ type ClientConn struct {
 
 	lastInsertId int64
 	affectedRows int64
-
-	// stmtId uint32
-
-	// stmts map[uint32]*Stmt //prepare相关,client端到proxy的stmt
 }
 
 var DEFAULT_CAPABILITY uint32 = mysql.CLIENT_LONG_PASSWORD | mysql.CLIENT_LONG_FLAG |
@@ -68,28 +63,6 @@ var DEFAULT_CAPABILITY uint32 = mysql.CLIENT_LONG_PASSWORD | mysql.CLIENT_LONG_F
 	mysql.CLIENT_TRANSACTIONS | mysql.CLIENT_SECURE_CONNECTION
 
 var baseConnId uint32 = 10000
-
-func (c *ClientConn) IsAllowConnect() bool {
-	clientHost, _, err := net.SplitHostPort(c.c.RemoteAddr().String())
-	if err != nil {
-		fmt.Println(err)
-	}
-	clientIP := net.ParseIP(clientHost)
-
-	ipVec := c.proxy.allowips[c.proxy.allowipsIndex]
-	if ipVecLen := len(ipVec); ipVecLen == 0 {
-		return true
-	}
-	for _, ip := range ipVec {
-		if ip.Equal(clientIP) {
-			return true
-		}
-	}
-
-	golog.Error("server", "IsAllowConnect", "error", mysql.ER_ACCESS_DENIED_ERROR,
-		"ip address", c.c.RemoteAddr().String(), " access denied by kindshard.")
-	return false
-}
 
 func (c *ClientConn) Handshake() error {
 	if err := c.writeInitialHandshake(); err != nil {
@@ -248,12 +221,47 @@ func (c *ClientConn) readHandshakeResponse() error {
 
 	}
 
-	golog.Error("handshake ", "response", "db ", 0, db)
 	if err := c.useDB(db); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func (c *ClientConn) DoStreamRoute() (err error) {
+	srcConn := c.c.(*net.TCPConn)
+	golog.Info("ClientConn", "Run", "address Info client end", 0, srcConn.RemoteAddr().String(), srcConn.LocalAddr().String())
+
+	//find default backend
+	node := c.proxy.GetNode("node1")
+	backendConn, err := c.getBackendConn(node, true)
+	dstConn := backendConn.Conn.GetTCPConnect().(*net.TCPConn)
+
+	golog.Info("ClientConn", "Run", "address Info backend ", 0, dstConn.RemoteAddr().String(), dstConn.LocalAddr().String())
+	if err != nil {
+		golog.Error("ClientConn", "Run getBackendConn", err.Error(), 0)
+	}
+
+	var buf bytes.Buffer
+	n, err := buf.ReadFrom(srcConn)
+
+	if err != nil {
+		golog.Error("ClientConn", "Run", "route send bytes error", 0, n)
+	}
+
+	golog.Info("ClientConn", "Run", "proxy send server bytes", 0, n)
+
+	n, err = buf.WriteTo(dstConn)
+
+	if err != nil {
+		golog.Error("ClientConn", "Run", "route receive bytes error", 0, n)
+	}
+
+	golog.Info("ClientConn", "Run", "proxy receive server bytes", 0, n)
+	buf.Reset()
+	buf.ReadFrom(dstConn)
+	buf.WriteTo(srcConn)
+	return
 }
 
 func (c *ClientConn) Run() {
@@ -268,24 +276,34 @@ func (c *ClientConn) Run() {
 				err.Error(), 0,
 				"stack", string(buf))
 		}
-
 		c.Close()
 	}()
 
 	for {
-		data, err := c.readPacket()
+		// if this client connection have not set the route for specific ID
+		// TODO find route
+
+		// now just do default route
+		err := c.DoStreamRoute()
 
 		if err != nil {
-			return
+			golog.Error("ClientConn", "Run", "route btyes error", c.connectionId, err.Error())
 		}
+		//
+		// golog.Info("ClientConn", "Run", "route btyes", 0, n)
 
-		if err := c.dispatch(data); err != nil {
-			c.proxy.counter.IncrErrLogTotal()
-			golog.Error("server", "Run",
-				err.Error(), c.connectionId,
-			)
-			c.writeError(err)
-		}
+		// data, err := c.readPacket()
+		// if err != nil {
+		// 	return
+		// }
+		//
+		// if err := c.dispatch(data); err != nil {
+		// 	c.proxy.counter.IncrErrLogTotal()
+		// 	golog.Error("server", "Run",
+		// 		err.Error(), c.connectionId,
+		// 	)
+		// 	c.writeError(err)
+		// }
 
 		if c.closed {
 			return
@@ -297,50 +315,48 @@ func (c *ClientConn) Run() {
 
 func (c *ClientConn) dispatch(data []byte) error {
 	c.proxy.counter.IncrClientQPS()
-	cmd := data[0]
-	data = data[1:]
-
-	switch cmd {
-	// case mysql.COM_QUIT:
-	// 	c.Close()
-	// 	return nil
-	case mysql.COM_QUERY:
-		golog.Warn("ClientConn", "dispatch", "query", 0, hack.String(data))
-		node := c.proxy.GetNode("node1")
-		co, err := c.getBackendConn(node, true)
-		res, err := co.Execute(hack.String(data))
-		if err != nil {
-			return err
-		}
-		c.writeResultset(res.Status, res.Resultset)
-	// 	return c.handleQuery(hack.String(data))
-	// case mysql.COM_PING:
-	// 	return c.writeOK(nil)
-	// case mysql.COM_INIT_DB:
-	// 	if err := c.useDB(hack.String(data)); err != nil {
-	// 		return err
-	// 	} else {
-	// 		return c.writeOK(nil)
-	// 	}
-	// case mysql.COM_FIELD_LIST:
-	// 	return c.handleFieldList(data)
-	// case mysql.COM_STMT_PREPARE:
-	// 	return c.handleStmtPrepare(hack.String(data))
-	// case mysql.COM_STMT_EXECUTE:
-	// 	return c.handleStmtExecute(data)
-	// case mysql.COM_STMT_CLOSE:
-	// 	return c.handleStmtClose(data)
-	// case mysql.COM_STMT_SEND_LONG_DATA:
-	// 	return c.handleStmtSendLongData(data)
-	// case mysql.COM_STMT_RESET:
-	// 	return c.handleStmtReset(data)
-	// case mysql.COM_SET_OPTION:
-	// 	return c.writeEOF(0)
-	default:
-		msg := fmt.Sprintf("command %d not supported now, data is %s", cmd, string(data))
-		golog.Error("ClientConn", "dispatch", msg, 0)
-		return mysql.NewError(mysql.ER_UNKNOWN_ERROR, msg)
+	//cmd := data[0]
+	//data = data[1:]
+	if len(hack.String(data)) == 0 {
+		golog.Warn("ClientConn", "dispatch", "skip empty query", 0)
 	}
+	// switch cmd {
+	// case mysql.COM_QUERY:
+	// 	golog.Info("ClientConn", "dispatch", "query", 0, hack.String(data))
+	// 	node := c.proxy.GetNode("node1")
+	// 	co, err := c.getBackendConn(node, true)
+	// 	res, err := co.Execute(hack.String(data))
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	c.writeResultset(res.Status, res.Resultset)
+	// default:
+	// 	msg := fmt.Sprintf("command %d not supported now, data is %s", cmd, string(data))
+	// 	golog.Error("ClientConn", "dispatch", msg, 0)
+	// 	return mysql.NewError(mysql.ER_UNKNOWN_ERROR, msg)
+	// }
+
+	golog.Info("ClientConn", "dispatch", "query", 0, hack.String(data))
+	node := c.proxy.GetNode("node1")
+	backendConn, err := c.getBackendConn(node, true)
+	backendConn.UseDB(c.db)
+
+	//	res, err := co.Execute(hack.String(data))
+	err = backendConn.Write(data)
+	if err != nil {
+		return err
+	}
+	result, err := backendConn.Read()
+	if err != nil {
+		return err
+	}
+
+	c.writePacket(result)
+	// if res.Resultset != nil {
+	// 	c.writeResultset(res.Status, res.Resultset)
+	// } else {
+	// 	c.writeOK(res)
+	// }
 
 	return nil
 }
@@ -362,7 +378,7 @@ func (c *ClientConn) useDB(db string) error {
 	// if err = co.UseDB(db); err != nil {
 	// 	return err
 	// }
-	// c.db = db
+	c.db = db
 	return nil
 }
 

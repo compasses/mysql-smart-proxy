@@ -247,6 +247,7 @@ func (db *DB) PopConn() (*Conn, error) {
 	if cacheConns == nil || idleConns == nil {
 		return nil, errors.ErrDatabaseClose
 	}
+
 	co = db.GetConnFromCache(cacheConns)
 	if co == nil {
 		co, err = db.GetConnFromIdle(cacheConns, idleConns)

@@ -53,6 +53,10 @@ type Conn struct {
 	pkgErr        error
 }
 
+func (c *Conn) GetTCPConnect() net.Conn {
+	return c.conn
+}
+
 func (c *Conn) Connect(addr string, user string, password string, db string) error {
 	c.addr = addr
 	c.user = user
@@ -131,6 +135,14 @@ func (c *Conn) Close() error {
 	}
 
 	return nil
+}
+
+func (c *Conn) Read() ([]byte, error) {
+	return c.readPacket()
+}
+
+func (c *Conn) Write(data []byte) error {
+	return c.writePacket(data)
 }
 
 func (c *Conn) readPacket() ([]byte, error) {
