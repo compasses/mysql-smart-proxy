@@ -19,6 +19,11 @@ import (
 	"github.com/flike/kingshard/core/golog"
 )
 
+func (c *ClientConn) GetBackendConn(nodeName string) (co *backend.BackendConn, err error) {
+	node := c.proxy.GetNode(nodeName)
+	return c.getBackendConn(node, false)
+}
+
 func (c *ClientConn) getBackendConn(n *backend.Node, fromSlave bool) (co *backend.BackendConn, err error) {
 	co, err = n.GetMasterConn()
 	if err != nil {

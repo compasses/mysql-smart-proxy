@@ -294,6 +294,18 @@ func (c *Conn) writeCommand(command byte) error {
 	})
 }
 
+func (c *Conn) SendRawBytes(raw []byte) error {
+	c.pkg.Sequence = 0
+	length := len(raw)
+	data := make([]byte, length+4)
+	copy(data[4:], raw)
+	return c.writePacket(data)
+}
+
+func (c *Conn) ReadRawBytes() ([]byte, error) {
+	return c.readPacket()
+}
+
 func (c *Conn) writeCommandBuf(command byte, arg []byte) error {
 	c.pkg.Sequence = 0
 

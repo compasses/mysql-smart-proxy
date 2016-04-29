@@ -1,1 +1,1 @@
- go build mysql-load-balancer.go
+ go build -gcflags "-N -l" mysql-load-balancer.go

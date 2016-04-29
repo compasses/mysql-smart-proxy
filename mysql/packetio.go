@@ -54,9 +54,9 @@ func (p *PacketIO) ReadPacket() ([]byte, error) {
 	sequence := uint8(header[3])
 
 	if sequence != p.Sequence {
-		return nil, fmt.Errorf("invalid sequence %d != %d", sequence, p.Sequence)
+		fmt.Printf("now invalid sequence %d != %d", sequence, p.Sequence)
+		//return nil, fmt.Errorf("invalid sequence %d != %d", sequence, p.Sequence)
 	}
-
 	p.Sequence++
 
 	data := make([]byte, length)
