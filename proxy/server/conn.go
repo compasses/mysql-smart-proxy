@@ -151,6 +151,14 @@ func (c *ClientConn) writeInitialHandshake() error {
 	return c.writePacket(data)
 }
 
+func (c *ClientConn) readRaw() ([]byte, error) {
+	return c.pkg.ReadRawBytes()
+}
+
+func (c *ClientConn) writeRaw(data []byte) error {
+	return c.pkg.WriteRawBytes(data)
+}
+
 func (c *ClientConn) readPacket() ([]byte, error) {
 	return c.pkg.ReadPacket()
 }

@@ -39,6 +39,42 @@ func NewPacketIO(conn net.Conn) *PacketIO {
 	return p
 }
 
+func (p *PacketIO) ReadRawBytes() ([]byte, error) {
+	data := make([]byte, 1024)
+	tcpConn := p.wb.(*net.TCPConn)
+	for {
+		// read from the connection
+		n, err := tcpConn.Read(data)
+		if err != nil {
+			return nil, err
+		}
+		if n >= len(data) {
+			return data, nil
+		} else {
+			fmt.Println("need handle length more than 1024")
+			return data, nil
+		}
+	}
+}
+
+func (p *PacketIO) WriteRawBytes(data []byte) error {
+	tcpConn := p.wb.(*net.TCPConn)
+	var total int
+	for {
+		n, err := tcpConn.Write(data)
+		if err != nil {
+			total += n
+			fmt.Println("Write bytes number ", total)
+			return err
+		}
+		total += n
+		if total == len(data) {
+			fmt.Println("Write successfully, bytes number ", total)
+			return nil
+		}
+	}
+}
+
 func (p *PacketIO) ReadPacket() ([]byte, error) {
 	header := []byte{0, 0, 0, 0}
 
