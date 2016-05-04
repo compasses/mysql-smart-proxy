@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"time"
 )
 
 type PacketIO struct {
@@ -40,19 +41,21 @@ func NewPacketIO(conn net.Conn) *PacketIO {
 }
 
 func (p *PacketIO) ReadRawBytes() ([]byte, error) {
-	data := make([]byte, 1024)
+	data := make([]byte, 1024*1024*16)
 	tcpConn := p.wb.(*net.TCPConn)
+	tcpConn.SetReadDeadline(time.Now().Add(time.Millisecond * 50))
 	for {
 		// read from the connection
 		n, err := tcpConn.Read(data)
+		fmt.Println("read n ", n)
 		if err != nil {
 			return nil, err
 		}
 		if n >= len(data) {
+			fmt.Println("need handle length more than 16M")
 			return data, nil
 		} else {
-			fmt.Println("need handle length more than 1024")
-			return data, nil
+			return data[:n], nil
 		}
 	}
 }

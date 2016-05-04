@@ -17,6 +17,7 @@ package server
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"net"
 	"runtime"
 	"sync"
@@ -235,55 +236,60 @@ func (c *ClientConn) readHandshakeResponse() error {
 	return nil
 }
 
-func (c *ClientConn) DoStreamRoute() (err error) {
-	data, err := c.readPacket()
+func (c *ClientConn) DoStreamRoute(backConn *backend.BackendConn) (err error) {
+	fmt.Println("Use DB::", c.db)
+	data, err := c.readRaw()
 	if err != nil {
-		return err
+		if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
+			fmt.Println("just time out")
+		} else {
+			return err
+		}
 	}
 	c.proxy.counter.IncrClientQPS()
 	//process speical command
-	cmd := data[0]
-	switch cmd {
-	case mysql.COM_QUIT:
-		c.Close()
-		return nil
-	case mysql.COM_PING:
-		c.writeOK(nil)
-		return nil
+	if len(data) >= 4 {
+		cmd := data[4]
+		switch cmd {
+		case mysql.COM_QUIT:
+			fmt.Println("got quit command, ", string(data))
+			c.Close()
+			return nil
+		}
 	}
 
-	golog.Info("ClientConn", "Do Stream Route", "client read packet", c.connectionId, string(data))
+	fmt.Println("ClientConn", "Do Stream Route", "client read packet len", c.connectionId, len(data))
 	// get default
-	backConn, err := c.GetBackendConn("node1")
-	if err != nil {
-		return err
-	}
 
-	err = backConn.SendRawBytes(data)
-	if err != nil {
-		return err
+	if len(data) > 0 {
+		err = backConn.SendRawBytes(data)
+		if err != nil {
+			fmt.Println(" backConn send error ignore ", err) //return err
+		}
 	}
-	golog.Info("ClientConn", "Do Stream Route", "backend write packet", 0, string(data))
+	fmt.Println("ClientConn", "Do Stream Route", "backend write packet len", 0, len(data))
 
 	//read Response from Server
 	data, err = backConn.ReadRawBytes()
-	backConn.Close()
 
 	if err != nil {
-		return err
+		if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
+			fmt.Println("just time out from backConn")
+		} else {
+			fmt.Println(" backConn read error ignore ", err)
+			//return err
+		}
 	}
-	golog.Info("ClientConn", "Do Stream Route", "backend read packet", 0, string(data))
+	fmt.Println("ClientConn", "Do Stream Route", "backend read packet len", 0, len(data))
 
-	//send to client
-	// apend header
-	withheader := make([]byte, len(data)+4)
-	copy(withheader[4:], data)
-
-	err = c.writePacket(withheader)
-	if err != nil {
-		return err
+	if len(data) > 0 {
+		err = c.writeRaw(data)
+		if err != nil {
+			return err
+		}
 	}
-	golog.Info("ClientConn", "Do Stream Route", "client write packet", 0, string(data))
+
+	fmt.Println("ClientConn", "Do Stream Route", "client write packet len", 0, len(data))
 	return
 }
 
@@ -302,14 +308,26 @@ func (c *ClientConn) Run() {
 		c.Close()
 	}()
 
+	backConn, err := c.GetBackendConn("node1")
+	if err != nil {
+		fmt.Println("fatal error backConn get failed", err.Error())
+	}
+	backConn.UseDB("ESHOPDB16")
+	defer backConn.Close()
+
 	for {
 		// if this client connection have not set the route for specific ID
 		// TODO find route
 
 		// now just do default route
-		err := c.DoStreamRoute()
+		fmt.Println("handle connection ....")
 
+		err := c.DoStreamRoute(backConn)
 		if err != nil {
+			if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
+				fmt.Println("just time out")
+				continue
+			}
 			golog.Error("ClientConn", "Run", "route btyes error", c.connectionId, err.Error())
 			c.proxy.counter.IncrErrLogTotal()
 			golog.Error("server", "Run",
