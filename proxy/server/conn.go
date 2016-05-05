@@ -310,24 +310,24 @@ func (c *ClientConn) Run() {
 
 	backConn, err := c.GetBackendConn("node1")
 	if err != nil {
-		fmt.Println("fatal error backConn get failed", err.Error())
+		golog.Error("ClientConn", "Run", "no backend connection available", c.connectionId, err.Error())
 	}
+
 	backConn.UseDB("ESHOPDB16")
 	defer backConn.Close()
-
 	for {
 		// if this client connection have not set the route for specific ID
 		// TODO find route
 
 		// now just do default route
-		fmt.Println("handle connection ....")
 
 		err := c.DoStreamRoute(backConn)
 		if err != nil {
 			if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
-				fmt.Println("just time out")
+				golog.Error("ClientConn", "Run", "read time out", c.connectionId, err.Error())
 				continue
 			}
+
 			golog.Error("ClientConn", "Run", "route btyes error", c.connectionId, err.Error())
 			c.proxy.counter.IncrErrLogTotal()
 			golog.Error("server", "Run",
