@@ -27,52 +27,11 @@ func (c *ClientConn) GetBackendConn(nodeName string) (co *backend.BackendConn, e
 func (c *ClientConn) getBackendConn(n *backend.Node, fromSlave bool) (co *backend.BackendConn, err error) {
 	co, err = n.GetMasterConn()
 	if err != nil {
-		golog.Error("Server", "getBackendConn", err.Error(), 0)
-		return
+		golog.Error("Server", "getBackendConn from master", err.Error(), 0)
+		co, err = n.GetSlaveConn()
+		if err != nil {
+			golog.Error("Server", "getBackendConn from slave failed, no connection available!", err.Error(), 0)
+		}
 	}
-	// if !c.isInTransaction() {
-	// 	if fromSlave {
-	// 		co, err = n.GetSlaveConn()
-	// 		if err != nil {
-	// 			co, err = n.GetMasterConn()
-	// 		}
-	// 	} else {
-	// 		co, err = n.GetMasterConn()
-	// 	}
-	// 	if err != nil {
-	// 		golog.Error("server", "getBackendConn", err.Error(), 0)
-	// 		return
-	// 	}
-	// } else {
-	// 	var ok bool
-	// 	co, ok = c.txConns[n]
-	//
-	// 	if !ok {
-	// 		if co, err = n.GetMasterConn(); err != nil {
-	// 			return
-	// 		}
-	//
-	// 		if !c.isAutoCommit() {
-	// 			if err = co.SetAutoCommit(0); err != nil {
-	// 				return
-	// 			}
-	// 		} else {
-	// 			if err = co.Begin(); err != nil {
-	// 				return
-	// 			}
-	// 		}
-	//
-	// 		c.txConns[n] = co
-	// 	}
-	// }
-	//
-	// if err = co.UseDB(c.db); err != nil {
-	// 	return
-	// }
-	//
-	// if err = co.SetCharset(c.charset); err != nil {
-	// 	return
-	// }
-
 	return
 }

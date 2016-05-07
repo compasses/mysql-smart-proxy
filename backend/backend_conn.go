@@ -54,6 +54,7 @@ type Conn struct {
 }
 
 func (c *Conn) GetTCPConnect() net.Conn {
+	c.conn.SetDeadline(time.Now().Add(time.Millisecond * 50))
 	return c.conn
 }
 

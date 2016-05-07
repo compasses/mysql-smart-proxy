@@ -36,7 +36,7 @@ var version *bool = flag.Bool("v", false, "the version of kingshard")
 const (
 	sqlLogName = "sql.log"
 	sysLogName = "sys.log"
-	MaxLogSize = 1024 * 1024 * 1024
+	MaxLogSize = 1024 * 1024 * 10
 )
 
 const banner string = `

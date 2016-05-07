@@ -43,11 +43,10 @@ func NewPacketIO(conn net.Conn) *PacketIO {
 func (p *PacketIO) ReadRawBytes() ([]byte, error) {
 	data := make([]byte, 1024*1024*16)
 	tcpConn := p.wb.(*net.TCPConn)
-	tcpConn.SetReadDeadline(time.Now().Add(time.Millisecond * 50))
+	tcpConn.SetReadDeadline(time.Now().Add(time.Millisecond * 10))
 	for {
 		// read from the connection
 		n, err := tcpConn.Read(data)
-		fmt.Println("read n ", n)
 		if err != nil {
 			return nil, err
 		}
@@ -67,14 +66,13 @@ func (p *PacketIO) WriteRawBytes(data []byte) error {
 		n, err := tcpConn.Write(data)
 		if err != nil {
 			total += n
-			fmt.Println("Write bytes number ", total)
 			return err
 		}
 		total += n
 		if total == len(data) {
-			fmt.Println("Write successfully, bytes number ", total)
 			return nil
 		}
+		data = data[n:]
 	}
 }
 
@@ -93,8 +91,7 @@ func (p *PacketIO) ReadPacket() ([]byte, error) {
 	sequence := uint8(header[3])
 
 	if sequence != p.Sequence {
-		fmt.Printf("now invalid sequence %d != %d", sequence, p.Sequence)
-		//return nil, fmt.Errorf("invalid sequence %d != %d", sequence, p.Sequence)
+		return nil, fmt.Errorf("invalid sequence %d != %d", sequence, p.Sequence)
 	}
 	p.Sequence++
 

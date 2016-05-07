@@ -247,10 +247,10 @@ func (db *DB) PopConn() (*Conn, error) {
 	if cacheConns == nil || idleConns == nil {
 		return nil, errors.ErrDatabaseClose
 	}
-
 	co = db.GetConnFromCache(cacheConns)
 	if co == nil {
 		co, err = db.GetConnFromIdle(cacheConns, idleConns)
+
 		if err != nil {
 			return nil, err
 		}
@@ -268,6 +268,7 @@ func (db *DB) PopConn() (*Conn, error) {
 func (db *DB) GetConnFromCache(cacheConns chan *Conn) *Conn {
 	var co *Conn
 	var err error
+
 	for 0 < len(cacheConns) {
 		co = <-cacheConns
 		if co != nil && PingPeroid < time.Now().Unix()-co.pushTimestamp {

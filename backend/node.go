@@ -103,10 +103,17 @@ func (n *Node) GetSlaveConn() (*BackendConn, error) {
 }
 
 func (n *Node) checkMaster() {
-	db := n.Master
+	var db *DB
+	db = n.Master
 	if db == nil {
 		golog.Error("Node", "checkMaster", "Master is no alive", 0)
-		return
+		var err error
+		db, err = n.OpenDB(n.Cfg.Master)
+		if err != nil {
+			golog.Error("Node", "checkMaster", "Try connect to Master failed", 0)
+			return
+		}
+		n.Master = db
 	}
 
 	if err := db.Ping(); err != nil {

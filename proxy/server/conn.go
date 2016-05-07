@@ -17,7 +17,6 @@ package server
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"net"
 	"runtime"
 	"sync"
@@ -52,8 +51,7 @@ type ClientConn struct {
 
 	txConns map[*backend.Node]*backend.BackendConn
 
-	closed bool
-
+	closed       bool
 	lastInsertId int64
 	affectedRows int64
 }
@@ -237,11 +235,14 @@ func (c *ClientConn) readHandshakeResponse() error {
 }
 
 func (c *ClientConn) DoStreamRoute(backConn *backend.BackendConn) (err error) {
-	fmt.Println("Use DB::", c.db)
+	if len(c.db) <= 0 {
+		golog.Error("ClientConn", "Do Stream Route", "Set DB is empty", c.connectionId)
+	}
+
 	data, err := c.readRaw()
 	if err != nil {
 		if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
-			fmt.Println("just time out")
+			golog.Info("ClientConn", "Do Stream Route", "client read packet time out", c.connectionId)
 		} else {
 			return err
 		}
@@ -252,35 +253,34 @@ func (c *ClientConn) DoStreamRoute(backConn *backend.BackendConn) (err error) {
 		cmd := data[4]
 		switch cmd {
 		case mysql.COM_QUIT:
-			fmt.Println("got quit command, ", string(data))
+			golog.Info("ClientConn", "Do Stream Route", "Got quit command", c.connectionId)
 			c.Close()
 			return nil
 		}
 	}
 
-	fmt.Println("ClientConn", "Do Stream Route", "client read packet len", c.connectionId, len(data))
+	golog.Debug("ClientConn", "Do Stream Route", "client read packet", c.connectionId, len(data))
 	// get default
 
 	if len(data) > 0 {
 		err = backConn.SendRawBytes(data)
 		if err != nil {
-			fmt.Println(" backConn send error ignore ", err) //return err
+			golog.Error("ClientConn", "Do Stream Route", "backConn send stream", c.connectionId, err)
 		}
 	}
-	fmt.Println("ClientConn", "Do Stream Route", "backend write packet len", 0, len(data))
+	golog.Debug("ClientConn", "Do Stream Route", "backend write packet", c.connectionId, len(data))
 
 	//read Response from Server
 	data, err = backConn.ReadRawBytes()
 
 	if err != nil {
 		if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
-			fmt.Println("just time out from backConn")
+			golog.Info("ClientConn", "Do Stream Route", "backend read packet time out", c.connectionId)
 		} else {
-			fmt.Println(" backConn read error ignore ", err)
-			//return err
+			golog.Error("ClientConn", "Do Stream Route", "backConn read stream", c.connectionId, err)
 		}
 	}
-	fmt.Println("ClientConn", "Do Stream Route", "backend read packet len", 0, len(data))
+	golog.Debug("ClientConn", "Do Stream Route", "backend read packet len", c.connectionId, len(data))
 
 	if len(data) > 0 {
 		err = c.writeRaw(data)
@@ -288,12 +288,12 @@ func (c *ClientConn) DoStreamRoute(backConn *backend.BackendConn) (err error) {
 			return err
 		}
 	}
-
-	fmt.Println("ClientConn", "Do Stream Route", "client write packet len", 0, len(data))
+	golog.Debug("ClientConn", "Do Stream Route", "client write packet len", c.connectionId, len(data))
 	return
 }
 
 func (c *ClientConn) Run() {
+	//crash recover
 	defer func() {
 		r := recover()
 		if err, ok := r.(error); ok {
@@ -308,108 +308,83 @@ func (c *ClientConn) Run() {
 		c.Close()
 	}()
 
+	//get backend connectino from
 	backConn, err := c.GetBackendConn("node1")
 	if err != nil {
 		golog.Error("ClientConn", "Run", "no backend connection available", c.connectionId, err.Error())
+		return
 	}
-
+	//currently just use the default DB
 	backConn.UseDB("ESHOPDB16")
 	defer backConn.Close()
-	for {
-		// if this client connection have not set the route for specific ID
-		// TODO find route
 
-		// now just do default route
-
-		err := c.DoStreamRoute(backConn)
-		if err != nil {
-			if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
-				golog.Error("ClientConn", "Run", "read time out", c.connectionId, err.Error())
-				continue
-			}
-
-			golog.Error("ClientConn", "Run", "route btyes error", c.connectionId, err.Error())
-			c.proxy.counter.IncrErrLogTotal()
-			golog.Error("server", "Run",
-				err.Error(), c.connectionId,
-			)
-			c.writeError(err)
-			c.closed = true
-		}
-
-		if c.closed {
-			return
-		}
-
-		c.pkg.Sequence = 0
+	clientPipe := &TransPipe{
+		Src:    c.c,
+		Dst:    backConn.Conn.GetTCPConnect(),
+		Info:   "clint to server",
+		ErrMsg: make(chan string),
+		Quit:   make(chan bool),
+		Cid:    c.connectionId,
+		Direct: 0,
 	}
-}
 
-func (c *ClientConn) dispatch(data []byte) error {
-	// c.proxy.counter.IncrClientQPS()
-	// //cmd := data[0]
-	// //data = data[1:]
-	// if len(hack.String(data)) == 0 {
-	// 	golog.Warn("ClientConn", "dispatch", "skip empty query", 0)
-	// }
-	// // switch cmd {
-	// // case mysql.COM_QUERY:
-	// // 	golog.Info("ClientConn", "dispatch", "query", 0, hack.String(data))
-	// // 	node := c.proxy.GetNode("node1")
-	// // 	co, err := c.getBackendConn(node, true)
-	// // 	res, err := co.Execute(hack.String(data))
-	// // 	if err != nil {
-	// // 		return err
-	// // 	}
-	// // 	c.writeResultset(res.Status, res.Resultset)
-	// // default:
-	// // 	msg := fmt.Sprintf("command %d not supported now, data is %s", cmd, string(data))
-	// // 	golog.Error("ClientConn", "dispatch", msg, 0)
-	// // 	return mysql.NewError(mysql.ER_UNKNOWN_ERROR, msg)
-	// // }
-	//
-	// golog.Info("ClientConn", "dispatch", "query", 0, hack.String(data))
-	// node := c.proxy.GetNode("node1")
-	// backendConn, err := c.getBackendConn(node, true)
-	// backendConn.UseDB(c.db)
-	//
-	// //	res, err := co.Execute(hack.String(data))
-	// err = backendConn.Write(data)
-	// if err != nil {
-	// 	return err
-	// }
-	// result, err := backendConn.Read()
-	// if err != nil {
-	// 	return err
-	// }
-	//
-	// c.writePacket(result)
-	// // if res.Resultset != nil {
-	// // 	c.writeResultset(res.Status, res.Resultset)
-	// // } else {
-	// // 	c.writeOK(res)
-	// // }
+	serverPipe := &TransPipe{
+		Src:    backConn.Conn.GetTCPConnect(),
+		Dst:    c.c,
+		Info:   "server to client",
+		ErrMsg: make(chan string),
+		Quit:   make(chan bool),
+		Cid:    c.connectionId,
+		Direct: 1,
+	}
 
-	return nil
+	go clientPipe.PipeStream()
+	go serverPipe.PipeStream()
+
+	select {
+	case msg := <-serverPipe.ErrMsg:
+		golog.Info("ClientConn", "Run", "handle server pipe connection end", c.connectionId, msg)
+		c.closed = true
+		clientPipe.Quit <- true
+		close(clientPipe.ErrMsg)
+	case msg := <-clientPipe.ErrMsg:
+		golog.Info("ClientConn", "Run", "handle client pipe stream end", c.connectionId, msg)
+		c.closed = true
+		serverPipe.Quit <- true
+		close(serverPipe.ErrMsg)
+	}
+
+	// for {
+	// 	// if this client connection have not set the route for specific ID
+	// 	// TODO find route
+	//
+	// 	// now just do default route
+	//
+	// 	err := c.DoStreamRoute(backConn)
+	// 	if err != nil {
+	// 		if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
+	// 			golog.Error("ClientConn", "Run", "read time out", c.connectionId, err.Error())
+	// 			continue
+	// 		}
+	//
+	// 		golog.Error("ClientConn", "Run", "route btyes error", c.connectionId, err.Error())
+	// 		c.proxy.counter.IncrErrLogTotal()
+	// 		golog.Error("server", "Run",
+	// 			err.Error(), c.connectionId,
+	// 		)
+	// 		c.writeError(err)
+	// 		c.closed = true
+	// 	}
+	//
+	// 	if c.closed {
+	// 		return
+	// 	}
+	//
+	// 	c.pkg.Sequence = 0
+	// }
 }
 
 func (c *ClientConn) useDB(db string) error {
-	// if c.schema == nil {
-	// 	return mysql.NewDefaultError(mysql.ER_NO_DB_ERROR)
-	// }
-	//
-	// nodeName := c.schema.rule.DefaultRule.Nodes[0]
-	//
-	// n := c.proxy.GetNode(nodeName)
-	// co, err := n.GetMasterConn()
-	// defer c.closeConn(co, false)
-	// if err != nil {
-	// 	return err
-	// }
-	//
-	// if err = co.UseDB(db); err != nil {
-	// 	return err
-	// }
 	c.db = db
 	return nil
 }

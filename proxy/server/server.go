@@ -54,17 +54,12 @@ func (s *Server) parseNode(cfg config.NodeConfig) (*backend.Node, error) {
 
 	n.DownAfterNoAlive = time.Duration(cfg.DownAfterNoAlive) * time.Second
 	err = n.ParseMaster(cfg.Master)
-	if err != nil {
-		return nil, err
-	}
+
 	err = n.ParseSlave(cfg.Slave)
-	if err != nil {
-		return nil, err
-	}
 
 	go n.CheckNode()
 
-	return n, nil
+	return n, err
 }
 
 func (s *Server) parseNodes() error {
@@ -78,7 +73,7 @@ func (s *Server) parseNodes() error {
 
 		n, err := s.parseNode(v)
 		if err != nil {
-			return err
+			golog.Error("Server", "parseNodes", "configure node has some error ", 0, err)
 		}
 
 		s.nodes[v.Name] = n
@@ -106,7 +101,6 @@ func NewServer(cfg *config.Config) (*Server, error) {
 
 	var err error
 	s.listener, err = net.Listen("tcp", s.addr)
-
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +146,6 @@ func (s *Server) newClientConn(co net.Conn) *ClientConn {
 	c.txConns = make(map[*backend.Node]*backend.BackendConn)
 
 	c.closed = false
-
 	c.charset = s.charset
 
 	return c
