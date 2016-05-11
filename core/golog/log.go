@@ -297,7 +297,7 @@ func output(level int, module string, method string, msg string, reqId uint32, a
 		argsBuff.WriteString(escape(fmt.Sprintf("%v", args[len(args)-1]), false))
 	}
 
-	content := fmt.Sprintf(`[%s] "%s" "%s" "%s" conn_id=%d`,
+	content := fmt.Sprintf(`[%s] "%s" "%s" "%s" cid=%d`,
 		module, method, msg, argsBuff.String(), reqId)
 
 	GlobalSysLogger.Output(3, level, content)

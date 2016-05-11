@@ -4,82 +4,123 @@ import (
 	"io"
 	"net"
 
+	"github.com/compasses/mysql-load-balancer/backend"
 	"github.com/compasses/mysql-load-balancer/core/golog"
 	"github.com/compasses/mysql-load-balancer/mysql"
 )
 
+type Transport struct {
+	Client    TransPipe
+	Server    TransPipe
+	RoundTrip chan int
+	Quit      chan bool
+	backend   *backend.BackendConn
+}
+
 type TransPipe struct {
-	Src    io.ReadWriter
-	Dst    io.ReadWriter
-	Info   string
-	ErrMsg chan string
-	Quit   chan bool
-	Cid    uint32
-	Direct int // 0 from client, 1 from server
+	src    net.Conn
+	dst    net.Conn
+	tline  *Transport
+	info   string
+	errMsg chan string
+	quit   chan bool
+	cid    uint32
+	direct int // 0 from client, 1 from server
+}
+
+func NewTransport(c *ClientConn) (*Transport, error) {
+	//got backend connection
+	backConn, err := c.GetBackendConn("node1")
+	if err != nil {
+		golog.Error("Transport", "NewTransport", "no backend connection available", c.connectionId, err.Error())
+		return nil, err
+	}
+	backConn.UseDB("ESHOPDB16")
+	t := new(Transport)
+
+	t.Client = TransPipe{
+		src:    c.c,
+		dst:    backConn.Conn.GetTCPConnect(),
+		tline:  t,
+		info:   c.Info(),
+		cid:    c.connectionId,
+		quit:   make(chan bool),
+		direct: 0,
+	}
+
+	t.Server = TransPipe{
+		src:    backConn.Conn.GetTCPConnect(),
+		dst:    c.c,
+		tline:  t,
+		info:   backConn.Info(),
+		cid:    backConn.Conn.ConnectionId(),
+		quit:   make(chan bool),
+		direct: 1,
+	}
+
+	t.backend = backConn
+	t.RoundTrip = make(chan int)
+	t.Quit = make(chan bool)
+
+	return t, nil
+}
+
+func (trans *Transport) Start() {
+	defer trans.backend.Close()
+	go func() {
+		golog.Info("Transport", "Transform", "Start transfer", trans.Client.cid, "backend cid", trans.Server.cid)
+		for {
+			go trans.Client.PipeStream()
+			sent := <-trans.RoundTrip
+			if sent > 0 {
+				go trans.Server.PipeStream()
+				sent = <-trans.RoundTrip
+				if sent <= 0 {
+					golog.Info("Transport", "Start", "server transport end", trans.Server.cid)
+				}
+			} else {
+				golog.Info("Transport", "Start", "client transport end", trans.Client.cid)
+				break
+			}
+		}
+		trans.Quit <- true
+	}()
+
+	<-trans.Quit
+	golog.Info("Transport", "Transform", "Finish", trans.Client.cid, "backend cid", trans.Server.cid)
 }
 
 func (t *TransPipe) PipeStream() {
-	//64K buffer
-	buf := make([]byte, 0xffff)
-	for {
-		select {
-		case <-t.Quit:
-			golog.Info("Transport", "PipeStream quit ", t.Info, t.Cid, "Client Quit")
-			return
-		default:
-			//golog.Info("Transport", "PipeStream", t.Info, t.Cid)
-			n, err := t.Src.Read(buf)
-			// if t.Direct == 1 && len(buf) > 4 && buf[4] == mysql.OK_HEADER {
-			// 	golog.Info("Transport", "PipeStream server ping received need quit ", t.Info, t.Cid, "server Quit")
-			// 	// t.ErrMsg <- "Client Quit"
-			// 	// t.Quit <- true
-			// 	// return
-			// }
-			//golog.Info("Transport", "PipeStream read ", t.Info, t.Cid, n)
+	//16M buffer
+	buf := make([]byte, 1024*1024*16)
+	n, err := t.src.Read(buf)
 
-			if err != nil {
-				if opErr, ok := err.(*net.OpError); ok && opErr.Timeout() {
-					continue
-				}
-				t.PipeError(err)
-				return
-			}
-			sent := buf[:n]
-			//process speical command from client
-			if t.Direct == 0 && len(sent) >= 4 {
-				cmd := sent[4]
-				switch cmd {
-				case mysql.COM_QUIT:
-					//golog.Info("Transport", "PipeStream", t.Info, t.Cid, "Client Quit")
-					t.ErrMsg <- "Client Quit"
-					t.Quit <- true
-					// t.Dst.Write([]byte{
-					// 	0x01, //1 bytes long
-					// 	0x00,
-					// 	0x00,
-					// 	0x00, //sequence
-					// 	mysql.COM_PING})
-					return
-				}
-			}
-			// } else if (t.Direct == 1 && len(sent) > 4 )
-
-			n, err = t.Dst.Write(sent)
-			if err != nil {
-				if opErr, ok := err.(*net.OpError); ok && opErr.Timeout() {
-					continue
-				}
-				t.PipeError(err)
-				return
-			}
-		}
-
+	if err != nil {
+		t.PipeError(err)
+		return
 	}
+	sent := buf[:n]
+	if t.direct == 0 && len(sent) >= 4 {
+		cmd := sent[4]
+		switch cmd {
+		case mysql.COM_QUIT:
+			golog.Info("Transport", "PipeStream Got Client Quit command", t.info, t.cid, "Client Quit")
+			t.tline.RoundTrip <- 0
+			return
+		}
+	}
+	n, err = t.dst.Write(sent)
+	if err != nil {
+		t.PipeError(err)
+		return
+	}
+
+	t.tline.RoundTrip <- n
 }
 
 func (t *TransPipe) PipeError(err error) {
 	if err != io.EOF {
-		golog.Warn("Server", "PipeError", t.Info, t.Cid, err)
+		golog.Warn("Server", "PipeError", t.info, t.cid, err)
 	}
-	t.ErrMsg <- err.Error()
+	t.tline.RoundTrip <- 0
 }

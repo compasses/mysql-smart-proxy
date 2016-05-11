@@ -50,12 +50,21 @@ type Conn struct {
 	salt      []byte
 
 	pushTimestamp int64
+	connectionId  uint32
 	pkgErr        error
 }
 
 func (c *Conn) GetTCPConnect() net.Conn {
-	c.conn.SetDeadline(time.Now().Add(time.Millisecond * 50))
+	//c.conn.SetDeadline(time.Now().Add(time.Millisecond * 50))
 	return c.conn
+}
+
+func (c *Conn) ConnectionId() uint32 {
+	return c.connectionId
+}
+
+func (c *Conn) Info() string {
+	return c.conn.LocalAddr().String() + " => " + c.conn.RemoteAddr().String()
 }
 
 func (c *Conn) Connect(addr string, user string, password string, db string) error {
@@ -93,7 +102,7 @@ func (c *Conn) ReConnect() error {
 	// The default is true (no delay),
 	// meaning that data is sent as soon as possible after a Write.
 	//I set this option false.
-	tcpConn.SetNoDelay(false)
+	//tcpConn.SetNoDelay(false)
 	tcpConn.SetKeepAlive(true)
 	c.conn = tcpConn
 	c.pkg = mysql.NewPacketIO(tcpConn)

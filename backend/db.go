@@ -15,12 +15,12 @@
 package backend
 
 import (
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/compasses/mysql-load-balancer/core/errors"
-	"github.com/compasses/mysql-load-balancer/mysql"
 )
 
 const (
@@ -43,11 +43,12 @@ type DB struct {
 	db       string
 	state    int32
 
-	maxConnNum  int
-	InitConnNum int
-	idleConns   chan *Conn
-	cacheConns  chan *Conn
-	checkConn   *Conn
+	maxConnNum   int
+	InitConnNum  int
+	idleConns    chan *Conn
+	cacheConns   chan *Conn
+	checkConn    *Conn
+	connectionId uint32
 }
 
 func Open(addr string, user string, password string, dbName string, maxConnNum int) (*DB, error) {
@@ -57,6 +58,7 @@ func Open(addr string, user string, password string, dbName string, maxConnNum i
 	db.user = user
 	db.password = password
 	db.db = dbName
+	db.connectionId = 1
 
 	if 0 < maxConnNum {
 		db.maxConnNum = maxConnNum
@@ -188,6 +190,8 @@ func (db *DB) newConn() (*Conn, error) {
 	if err := co.Connect(db.addr, db.user, db.password, db.db); err != nil {
 		return nil, err
 	}
+	co.connectionId = db.connectionId
+	db.connectionId++
 
 	return co, nil
 }
@@ -209,32 +213,32 @@ func (db *DB) closeConn(co *Conn) error {
 }
 
 func (db *DB) tryReuse(co *Conn) error {
-	var err error
-	//reuse Connection
-	if co.IsInTransaction() {
-		//we can not reuse a connection in transaction status
-		err = co.Rollback()
-		if err != nil {
-			return err
-		}
-	}
-
-	if !co.IsAutoCommit() {
-		//we can not  reuse a connection not in autocomit
-		_, err = co.exec("set autocommit = 1")
-		if err != nil {
-			return err
-		}
-	}
-
-	//connection may be set names early
-	//we must use default utf8
-	if co.GetCharset() != mysql.DEFAULT_CHARSET {
-		err = co.SetCharset(mysql.DEFAULT_CHARSET)
-		if err != nil {
-			return err
-		}
-	}
+	// var err error
+	// //reuse Connection
+	// if co.IsInTransaction() {
+	// 	//we can not reuse a connection in transaction status
+	// 	err = co.Rollback()
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// }
+	//
+	// if !co.IsAutoCommit() {
+	// 	//we can not  reuse a connection not in autocomit
+	// 	_, err = co.exec("set autocommit = 1")
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// }
+	//
+	// //connection may be set names early
+	// //we must use default utf8
+	// if co.GetCharset() != mysql.DEFAULT_CHARSET {
+	// 	err = co.SetCharset(mysql.DEFAULT_CHARSET)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// }
 
 	return nil
 }
@@ -274,6 +278,7 @@ func (db *DB) GetConnFromCache(cacheConns chan *Conn) *Conn {
 		if co != nil && PingPeroid < time.Now().Unix()-co.pushTimestamp {
 			err = co.Ping()
 			if err != nil {
+				fmt.Println("Ping error: ", db.connectionId)
 				db.closeConn(co)
 				co = nil
 			}

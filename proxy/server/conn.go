@@ -103,6 +103,10 @@ func (c *ClientConn) Close() error {
 	return nil
 }
 
+func (c *ClientConn) Info() string {
+	return c.c.LocalAddr().String() + " => " + c.c.RemoteAddr().String()
+}
+
 func (c *ClientConn) writeInitialHandshake() error {
 	data := make([]byte, 4, 128)
 
@@ -307,81 +311,13 @@ func (c *ClientConn) Run() {
 		}
 		c.Close()
 	}()
-
-	//get backend connectino from
-	backConn, err := c.GetBackendConn("node1")
+	trans, err := NewTransport(c)
 	if err != nil {
-		golog.Error("ClientConn", "Run", "no backend connection available", c.connectionId, err.Error())
+		golog.Error("ClientConn", "Run",
+			err.Error(), 0)
 		return
 	}
-	//currently just use the default DB
-	backConn.UseDB("ESHOPDB16")
-	defer backConn.Close()
-
-	clientPipe := &TransPipe{
-		Src:    c.c,
-		Dst:    backConn.Conn.GetTCPConnect(),
-		Info:   "clint to server",
-		ErrMsg: make(chan string),
-		Quit:   make(chan bool),
-		Cid:    c.connectionId,
-		Direct: 0,
-	}
-
-	serverPipe := &TransPipe{
-		Src:    backConn.Conn.GetTCPConnect(),
-		Dst:    c.c,
-		Info:   "server to client",
-		ErrMsg: make(chan string),
-		Quit:   make(chan bool),
-		Cid:    c.connectionId,
-		Direct: 1,
-	}
-
-	go clientPipe.PipeStream()
-	go serverPipe.PipeStream()
-
-	select {
-	case msg := <-serverPipe.ErrMsg:
-		golog.Info("ClientConn", "Run", "handle server pipe connection end", c.connectionId, msg)
-		c.closed = true
-		clientPipe.Quit <- true
-		close(clientPipe.ErrMsg)
-	case msg := <-clientPipe.ErrMsg:
-		golog.Info("ClientConn", "Run", "handle client pipe stream end", c.connectionId, msg)
-		c.closed = true
-		serverPipe.Quit <- true
-		close(serverPipe.ErrMsg)
-	}
-
-	// for {
-	// 	// if this client connection have not set the route for specific ID
-	// 	// TODO find route
-	//
-	// 	// now just do default route
-	//
-	// 	err := c.DoStreamRoute(backConn)
-	// 	if err != nil {
-	// 		if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
-	// 			golog.Error("ClientConn", "Run", "read time out", c.connectionId, err.Error())
-	// 			continue
-	// 		}
-	//
-	// 		golog.Error("ClientConn", "Run", "route btyes error", c.connectionId, err.Error())
-	// 		c.proxy.counter.IncrErrLogTotal()
-	// 		golog.Error("server", "Run",
-	// 			err.Error(), c.connectionId,
-	// 		)
-	// 		c.writeError(err)
-	// 		c.closed = true
-	// 	}
-	//
-	// 	if c.closed {
-	// 		return
-	// 	}
-	//
-	// 	c.pkg.Sequence = 0
-	// }
+	trans.Start()
 }
 
 func (c *ClientConn) useDB(db string) error {
