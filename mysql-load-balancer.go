@@ -26,7 +26,7 @@ import (
 	"github.com/compasses/mysql-load-balancer/config"
 	"github.com/compasses/mysql-load-balancer/core/golog"
 	"github.com/compasses/mysql-load-balancer/core/hack"
-	"github.com/compasses/mysql-load-balancer/proxy/server"
+	"github.com/compasses/mysql-load-balancer/proxy"
 )
 
 var configFile *string = flag.String("config", "ks.yaml", "kingshard config file")
