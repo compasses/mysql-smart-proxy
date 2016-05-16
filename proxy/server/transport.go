@@ -160,17 +160,8 @@ func (trans *TransPipe) ReadClientRaw() ([]byte, error) {
 		if length < mysql.MaxPayloadLen {
 			return append(header[:], data...), nil
 		} else {
-			fmt.Errorf("invalid payload length %d", length)
-			return nil, mysql.ErrBadConn
+			return nil, fmt.Errorf("invalid payload length %d", length)
 		}
-		//
-		// var buf []byte
-		// buf, err = pipe.ReadClientData()
-		// if err != nil {
-		// 	return nil, mysql.ErrBadConn
-		// } else {
-		// 	return append(data, buf...), nil
-		// }
 	}
 }
 
@@ -202,20 +193,6 @@ func (trans *TransPipe) ReadServerRaw(isNested bool) ([]byte, error) {
 				return append(header, buf...), nil
 			}
 		}
-		// if length >= mysql.MaxPayloadLen {
-		// 	return append(header[:], data...), nil
-		// } else {
-		// 	fmt.Errorf("invalid payload length %d", length)
-		// 	return nil, mysql.ErrBadConn
-		// }
-		//
-		// var buf []byte
-		// buf, err = pipe.ReadClientData()
-		// if err != nil {
-		// 	return nil, mysql.ErrBadConn
-		// } else {
-		// 	return append(data, buf...), nil
-		// }
 	}
 }
 
@@ -223,112 +200,6 @@ func (trans *TransPipe) Write(data []byte) error {
 	_, err := trans.pipe.Write(data)
 	return err
 }
-
-// func (trans *Transport) Start() {
-// 	defer trans.backend.Close()
-//
-// 	go func() {
-// 		golog.Info("Transport", "Transform", "Start transfer", trans.Client.cid, "backend cid", trans.Server.cid, trans.Client.info, trans.Server.info)
-//
-// 		for {
-// 			if !trans.Client.quit {
-// 				go trans.Client.PipeStream()
-// 			}
-// 			var toServer int
-// 			select {
-// 			case toServer = <-trans.Client.RoundTrip:
-// 				// case <-time.After(time.Second * 1):
-// 				// 	golog.Info("Transport", "Transform", "Client Transfer more than 1 second", trans.Client.cid, "backend cid", trans.Server.cid)
-// 				// 	break
-// 			}
-//
-// 			if toServer == 0 {
-// 				trans.Client.quit = true
-// 			} else {
-// 				trans.Server.quit = false
-// 			}
-//
-// 			golog.Info("Transport", "Transform", "Client Transfer ", trans.Client.cid, toServer)
-//
-// 			if !trans.Client.quit {
-// 				go trans.Server.PipeStream()
-// 				var sentBack int
-// 				select {
-// 				case sentBack = <-trans.Server.RoundTrip:
-// 					// case <-time.After(time.Second * 2):
-// 					// 	golog.Info("Transport", "Transform", "Server Transfer more than 1 second", trans.Client.cid, "backend cid", trans.Server.cid)
-// 					// 	break
-// 				}
-// 				golog.Info("Transport", "Transform", "Server Transfer ", trans.Server.cid, sentBack)
-// 				if sentBack == 0 {
-// 					trans.Server.quit = true
-// 				}
-// 			}
-//
-// 			if trans.Client.quit {
-// 				break
-// 			}
-// 		}
-// 		trans.Quit <- true
-// 	}()
-//
-// 	<-trans.Quit
-// 	golog.Info("Transport", "Transform", "Finish", trans.Client.cid, "backend cid", trans.Server.cid)
-// }
-
-// func (t *TransPipe) PipeStream() {
-// 	//1k buffer
-// 	buf := make([]byte, readBuf)
-//
-// 	n, err := t.src.Read(buf)
-//
-// 	if err != nil {
-// 		t.PipeError(err)
-// 		return
-// 	}
-// 	var sent []byte
-// 	totalLen := n
-// 	if n == readBuf {
-// 		newBuf := make([]byte, readLargeBuf)
-// 		newBuf = buf[:]
-// 		for {
-// 			golog.Warn("Server", "PipeStream", "more data need to read", t.cid, totalLen)
-// 			buf = make([]byte, readBuf)
-// 			n, err = t.src.Read(buf)
-// 			totalLen += n
-// 			newBuf = append(newBuf, buf[:n]...)
-// 			if err != nil {
-// 				t.PipeError(err)
-// 				return
-// 			}
-// 			if n < readBuf {
-// 				sent = newBuf[:totalLen]
-// 				break
-// 			}
-// 		}
-// 	} else {
-// 		sent = buf[:totalLen]
-// 	}
-//
-// 	if t.direct == 0 && len(sent) >= 4 {
-// 		cmd := sent[4]
-// 		switch cmd {
-// 		case mysql.COM_QUIT:
-// 			golog.Info("Transport", "PipeStream Got Client Quit command", t.info, t.cid, "Client Quit")
-// 			t.RoundTrip <- 0
-// 			return
-// 		}
-// 		golog.Info("Transport", "PipeStream Got Client command", t.info, t.cid, string(sent[5:]))
-// 	}
-//
-// 	n, err = t.dst.Write(sent)
-// 	if err != nil {
-// 		t.PipeError(err)
-// 		return
-// 	}
-//
-// 	t.RoundTrip <- n
-// }
 
 func (t *TransPipe) PipeError(err error) {
 	if err != io.EOF {

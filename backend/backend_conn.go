@@ -304,14 +304,6 @@ func (c *Conn) writeCommand(command byte) error {
 	})
 }
 
-func (c *Conn) SendRawBytes(raw []byte) error {
-	return c.pkg.WriteRawBytes(raw)
-}
-
-func (c *Conn) ReadRawBytes() ([]byte, error) {
-	return c.pkg.ReadRawBytes()
-}
-
 func (c *Conn) writeCommandBuf(command byte, arg []byte) error {
 	c.pkg.Sequence = 0
 
@@ -406,21 +398,6 @@ func (c *Conn) GetDB() string {
 
 func (c *Conn) GetAddr() string {
 	return c.addr
-}
-
-func (c *Conn) Execute(command string, args ...interface{}) (*mysql.Result, error) {
-	if len(args) == 0 {
-		return c.exec(command)
-	} else {
-		if s, err := c.Prepare(command); err != nil {
-			return nil, err
-		} else {
-			var r *mysql.Result
-			r, err = s.Execute(args...)
-			s.Close()
-			return r, err
-		}
-	}
 }
 
 func (c *Conn) ClosePrepare(id uint32) error {

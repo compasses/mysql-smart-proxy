@@ -238,64 +238,6 @@ func (c *ClientConn) readHandshakeResponse() error {
 	return nil
 }
 
-func (c *ClientConn) DoStreamRoute(backConn *backend.BackendConn) (err error) {
-	if len(c.db) <= 0 {
-		golog.Error("ClientConn", "Do Stream Route", "Set DB is empty", c.connectionId)
-	}
-
-	data, err := c.readRaw()
-	if err != nil {
-		if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
-			golog.Info("ClientConn", "Do Stream Route", "client read packet time out", c.connectionId)
-		} else {
-			return err
-		}
-	}
-	c.proxy.counter.IncrClientQPS()
-	//process speical command
-	if len(data) >= 4 {
-		cmd := data[4]
-		switch cmd {
-		case mysql.COM_QUIT:
-			golog.Info("ClientConn", "Do Stream Route", "Got quit command", c.connectionId)
-			c.Close()
-			return nil
-		}
-	}
-
-	golog.Debug("ClientConn", "Do Stream Route", "client read packet", c.connectionId, len(data))
-	// get default
-
-	if len(data) > 0 {
-		err = backConn.SendRawBytes(data)
-		if err != nil {
-			golog.Error("ClientConn", "Do Stream Route", "backConn send stream", c.connectionId, err)
-		}
-	}
-	golog.Debug("ClientConn", "Do Stream Route", "backend write packet", c.connectionId, len(data))
-
-	//read Response from Server
-	data, err = backConn.ReadRawBytes()
-
-	if err != nil {
-		if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
-			golog.Info("ClientConn", "Do Stream Route", "backend read packet time out", c.connectionId)
-		} else {
-			golog.Error("ClientConn", "Do Stream Route", "backConn read stream", c.connectionId, err)
-		}
-	}
-	golog.Debug("ClientConn", "Do Stream Route", "backend read packet len", c.connectionId, len(data))
-
-	if len(data) > 0 {
-		err = c.writeRaw(data)
-		if err != nil {
-			return err
-		}
-	}
-	golog.Debug("ClientConn", "Do Stream Route", "client write packet len", c.connectionId, len(data))
-	return
-}
-
 func (c *ClientConn) Run() {
 	//crash recover
 	defer func() {
