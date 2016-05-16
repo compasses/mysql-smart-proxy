@@ -93,6 +93,8 @@ func Open(addr string, user string, password string, dbName string, maxConnNum i
 			db.cacheConns <- conn
 		} else {
 			conn := new(Conn)
+			conn.connectionId = db.connectionId
+			db.connectionId++
 			db.idleConns <- conn
 		}
 	}
@@ -253,6 +255,7 @@ func (db *DB) PopConn() (*Conn, error) {
 	}
 	co = db.GetConnFromCache(cacheConns)
 	if co == nil {
+		fmt.Println("No cached connection available!!")
 		co, err = db.GetConnFromIdle(cacheConns, idleConns)
 
 		if err != nil {

@@ -153,7 +153,7 @@ func (s *Server) newClientConn(co net.Conn) *ClientConn {
 
 func (s *Server) onConn(c net.Conn) {
 	s.counter.IncrClientConns()
-	conn := s.newClientConn(c) //新建一个conn
+	conn := s.newClientConn(c)
 
 	defer func() {
 		err := recover()

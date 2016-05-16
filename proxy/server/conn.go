@@ -311,13 +311,16 @@ func (c *ClientConn) Run() {
 		}
 		c.Close()
 	}()
+
 	trans, err := NewTransport(c)
 	if err != nil {
 		golog.Error("ClientConn", "Run",
 			err.Error(), 0)
 		return
 	}
-	trans.Start()
+
+	trans.Run()
+	golog.Error("ClientConn", "Run", "Transport Finish............", c.connectionId)
 }
 
 func (c *ClientConn) useDB(db string) error {
