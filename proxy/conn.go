@@ -262,7 +262,7 @@ func (c *ClientConn) Run() {
 	}
 
 	trans.Run()
-	golog.Error("ClientConn", "Run", "Transport Finish............", c.connectionId)
+	golog.Info("ClientConn", "Run", "Transport Finish............", c.connectionId)
 }
 
 func (c *ClientConn) useDB(db string) error {

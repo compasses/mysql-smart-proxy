@@ -73,7 +73,6 @@ func (trans *Transport) Run() {
 			golog.Warn("Transport", "Run", "client error", trans.Client.cid, err.Error())
 			return
 		}
-		isQuery := false
 
 		if len(data) > 4 {
 			cmd := data[4]
@@ -85,16 +84,15 @@ func (trans *Transport) Run() {
 				trans.clientend.writeOK(nil)
 				golog.Warn("Transport", "Run", "client ping", uint32(cmd))
 				continue
-			// case mysql.COM_INIT_DB:
-			// 	if err := trans.clientend.useDB(hack.String(data)); err != nil {
-			// 		return //err
-			// 	} else {
-			// 		trans.clientend.writeOK(nil)
-			// 	}
-			// 	golog.Warn("Transport", "Run", "client change DB", uint32(cmd), string(data[5:]))
-			// 	continue
-			case mysql.COM_QUERY:
-				isQuery = true
+				// case mysql.COM_INIT_DB:
+				// 	if err := trans.clientend.useDB(hack.String(data)); err != nil {
+				// 		return //err
+				// 	} else {
+				// 		trans.clientend.writeOK(nil)
+				// 	}
+				// 	golog.Warn("Transport", "Run", "client change DB", uint32(cmd), string(data[5:]))
+				// 	continue
+				//case mysql.COM_QUERY:
 			}
 			golog.Debug("Transport", "Run", "client command", uint32(cmd), string(data[5:]))
 		}
@@ -107,7 +105,7 @@ func (trans *Transport) Run() {
 		}
 
 		//read response from server
-		data, err = trans.Server.ReadServerRaw(false)
+		data, err = trans.Server.ReadServerRaw()
 		golog.Debug("Transport", "Run", "server read ", trans.Server.cid, data)
 
 		if err != nil {
@@ -115,21 +113,40 @@ func (trans *Transport) Run() {
 			return
 		}
 
-		if isQuery && data[4] != mysql.OK_HEADER {
-			result, err := trans.Server.ReadServerRaw(true)
-			if err != nil {
-				golog.Warn("Transport", "Run", "server read error", trans.Server.cid, err.Error())
-				return
-			}
-			data = append(data, result...)
-			golog.Debug("Transport", "Run", "nest server read ", trans.Server.cid, data)
-		}
-
 		// send to client
 		err = trans.Client.Write(data)
 		if err != nil {
 			golog.Warn("Transport", "Run", "client write error", trans.Client.cid, err.Error())
 			return
+		}
+	}
+}
+
+func (trans *TransPipe) ReadPacket() ([]byte, error) {
+	header := []byte{0, 0, 0, 0}
+
+	if _, err := io.ReadFull(trans.pipe, header); err != nil {
+		return nil, mysql.ErrBadConn
+	}
+	length := int(uint32(header[0]) | uint32(header[1])<<8 | uint32(header[2])<<16)
+	if length < 1 {
+		return nil, fmt.Errorf("invalid payload length %d", length)
+	}
+
+	data := make([]byte, length)
+	if _, err := io.ReadFull(trans.pipe, data); err != nil {
+		return nil, mysql.ErrBadConn
+	} else {
+		if length < mysql.MaxPayloadLen {
+			return append(header[:], data...), nil
+		}
+		var buf []byte
+		buf, err = trans.ReadPacket()
+		if err != nil {
+			return nil, mysql.ErrBadConn
+		} else {
+			header = append(header[:], data...)
+			return append(header, buf...), nil
 		}
 	}
 }
@@ -144,56 +161,61 @@ func (trans *TransPipe) ReadHeader() ([]byte, error) {
 }
 
 func (trans *TransPipe) ReadClientRaw() ([]byte, error) {
-	header, err := trans.ReadHeader()
-	if err != nil {
-		return nil, mysql.ErrBadConn
-	}
-	length := int(uint32(header[0]) | uint32(header[1])<<8 | uint32(header[2])<<16)
-	if length < 1 {
-		return nil, fmt.Errorf("invalid payload length %d", length)
-	}
+	return trans.ReadPacket()
+}
 
-	data := make([]byte, length)
-	if _, err := io.ReadFull(trans.pipe, data); err != nil {
-		return nil, mysql.ErrBadConn
-	} else {
-		if length < mysql.MaxPayloadLen {
-			return append(header[:], data...), nil
-		} else {
-			return nil, fmt.Errorf("invalid payload length %d", length)
+func (trans *TransPipe) ReadServerColumns() ([]byte, error) {
+	//just read packet
+	var result []byte
+	for {
+		data, err := trans.ReadPacket()
+		if err != nil {
+			return nil, err
 		}
+
+		// EOF Packet
+		if mysql.IsEOFPacket(data[4:]) {
+			result = append(result, data...)
+			return result, nil
+		}
+		result = append(result, data...)
 	}
 }
 
-func (trans *TransPipe) ReadServerRaw(isNested bool) ([]byte, error) {
-	header, err := trans.ReadHeader()
+func (trans *TransPipe) ReadServerRows() ([]byte, error) {
+	//now just same to read columns
+	return trans.ReadServerColumns()
+}
+
+func (trans *TransPipe) ReadServerRaw() ([]byte, error) {
+	data, err := trans.ReadPacket()
 	if err != nil {
-		return nil, mysql.ErrBadConn
+		return nil, err
 	}
-	length := int(uint32(header[0]) | uint32(header[1])<<8 | uint32(header[2])<<16)
-	if length < 1 {
-		return nil, fmt.Errorf("invalid payload length %d", length)
+
+	if data[4] == mysql.OK_HEADER {
+		return data, nil
 	}
-	data := make([]byte, length)
-	if _, err := io.ReadFull(trans.pipe, data); err != nil {
-		return nil, mysql.ErrBadConn
-	} else {
-		if data[0] == mysql.OK_HEADER && !isNested {
-			return append(header[:], data...), nil
-		} else if data[0] == mysql.EOF_HEADER && len(data) <= 5 {
-			return append(header[:], data...), nil
-		} else {
-			//need continue read until EOF
-			var buf []byte
-			buf, err = trans.ReadServerRaw(true)
-			if err != nil {
-				return nil, mysql.ErrBadConn
-			} else {
-				header = append(header[:], data...)
-				return append(header, buf...), nil
-			}
-		}
+
+	// must be a result set
+	//get column count
+	_, _, n := mysql.LengthEncodedInt(data[4:])
+	if n-len(data[4:]) != 0 {
+		return nil, mysql.ErrMalformPacket
 	}
+	//read result columns
+	cols, err := trans.ReadServerColumns()
+	if err != nil {
+		return nil, err
+	}
+
+	//read result rows
+	rows, err := trans.ReadServerRows()
+	if err != nil {
+		return nil, err
+	}
+	data = append(data, cols...)
+	return append(data, rows...), nil
 }
 
 func (trans *TransPipe) Write(data []byte) error {

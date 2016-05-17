@@ -31,6 +31,10 @@ func Pstack() string {
 	return string(buf[0:n])
 }
 
+func IsEOFPacket(data []byte) bool {
+	return data[0] == EOF_HEADER && len(data) <= 5
+}
+
 func CalcPassword(scramble, password []byte) []byte {
 	if len(password) == 0 {
 		return nil

@@ -34,8 +34,8 @@ var logLevel *string = flag.String("log-level", "", "log level [debug|info|warn|
 var version *bool = flag.Bool("v", false, "the version of kingshard")
 
 const (
-	sqlLogName = "sql.log"
-	sysLogName = "sys.log"
+	sqlLogName = "slow_query.log"
+	sysLogName = "proxy.log"
 	MaxLogSize = 1024 * 1024 * 10
 )
 
