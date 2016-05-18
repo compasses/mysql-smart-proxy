@@ -23,19 +23,19 @@ import (
 
 //整个config文件对应的结构
 type Config struct {
-	Addr        string       `yaml:"addr"`
-	User        string       `yaml:"user"`
-	Password    string       `yaml:"password"`
-	LogPath     string       `yaml:"log_path"`
-	LogLevel    string       `yaml:"log_level"`
-	LogSql      string       `yaml:"log_sql"`
-	SlowLogTime int          `yaml:"slow_log_time"`
-	AllowIps    string       `yaml:"allow_ips"`
-	BlsFile     string       `yaml:"blacklist_sql_file"`
-	Charset     string       `yaml:"proxy_charset"`
-	Nodes       []NodeConfig `yaml:"nodes"`
+	Addr        string `yaml:"addr"`
+	User        string `yaml:"user"`
+	Password    string `yaml:"password"`
+	LogPath     string `yaml:"log_path"`
+	LogLevel    string `yaml:"log_level"`
+	LogSql      int    `yaml:"log_sql"`
+	SlowLogTime int64  `yaml:"slow_log_time"`
+	// AllowIps    string       `yaml:"allow_ips"`
+	// BlsFile     string       `yaml:"blacklist_sql_file"`
+	// Charset     string       `yaml:"proxy_charset"`
+	Nodes []NodeConfig `yaml:"nodes"`
 
-	Schema SchemaConfig `yaml:"schema"`
+	// Schema SchemaConfig `yaml:"schema"`
 }
 
 //node节点对应的配置
@@ -52,23 +52,23 @@ type NodeConfig struct {
 }
 
 //schema对应的结构体
-type SchemaConfig struct {
-	DB        string        `yaml:"db"`
-	Nodes     []string      `yaml:"nodes"`
-	Default   string        `yaml:"default"` //default route rule
-	ShardRule []ShardConfig `yaml:"shard"`   //route rule
-}
+// type SchemaConfig struct {
+// 	DB        string        `yaml:"db"`
+// 	Nodes     []string      `yaml:"nodes"`
+// 	Default   string        `yaml:"default"` //default route rule
+// 	ShardRule []ShardConfig `yaml:"shard"`   //route rule
+// }
 
 //range,hash or date
-type ShardConfig struct {
-	Table         string   `yaml:"table"`
-	Key           string   `yaml:"key"`
-	Nodes         []string `yaml:"nodes"`
-	Locations     []int    `yaml:"locations"`
-	Type          string   `yaml:"type"`
-	TableRowLimit int      `yaml:"table_row_limit"`
-	DateRange     []string `yaml:"date_range"`
-}
+// type ShardConfig struct {
+// 	Table         string   `yaml:"table"`
+// 	Key           string   `yaml:"key"`
+// 	Nodes         []string `yaml:"nodes"`
+// 	Locations     []int    `yaml:"locations"`
+// 	Type          string   `yaml:"type"`
+// 	TableRowLimit int      `yaml:"table_row_limit"`
+// 	DateRange     []string `yaml:"date_range"`
+// }
 
 func ParseConfigData(data []byte) (*Config, error) {
 	var cfg Config

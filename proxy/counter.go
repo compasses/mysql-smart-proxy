@@ -16,6 +16,8 @@ package server
 
 import (
 	"sync/atomic"
+
+	"github.com/compasses/mysql-load-balancer/core/golog"
 )
 
 type Counter struct {
@@ -51,6 +53,7 @@ func (counter *Counter) IncrSlowLogTotal() {
 
 //flush the count per second
 func (counter *Counter) FlushCounter() {
+	golog.RunInfo("Client QPS:%d, Client Conns:%d, Error Counts:%d, Slow Log Counts:%d", counter.OldClientQPS, counter.ClientConns, counter.ErrLogTotal, counter.SlowLogTotal)
 	atomic.StoreInt64(&counter.OldClientQPS, counter.ClientQPS)
 	atomic.StoreInt64(&counter.OldErrLogTotal, counter.ErrLogTotal)
 	atomic.StoreInt64(&counter.OldSlowLogTotal, counter.SlowLogTotal)

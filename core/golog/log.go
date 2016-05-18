@@ -232,6 +232,7 @@ func GetLevel() int {
 //全局变量
 var GlobalSysLogger *Logger = StdLogger()
 var GlobalSqlLogger *Logger = GlobalSysLogger
+var GlobalRunLogger *Logger = GlobalSysLogger
 
 func escape(s string, filterEqual bool) string {
 	dest := make([]byte, 0, 2*len(s))
@@ -252,6 +253,32 @@ func escape(s string, filterEqual bool) string {
 	}
 
 	return string(dest)
+}
+
+func RunInfo(format string, v ...interface{}) {
+	l := GlobalRunLogger
+	buf := l.popBuf()
+
+	if l.flag&Ltime > 0 {
+		now := time.Now().Format(TimeFormat)
+		buf = append(buf, now...)
+		buf = append(buf, " - "...)
+	}
+
+	// if l.flag&Llevel > 0 {
+	// 	buf = append(buf, state...)
+	// 	buf = append(buf, " - "...)
+	// }
+
+	s := fmt.Sprintf(format, v...)
+
+	buf = append(buf, s...)
+
+	if s[len(s)-1] != '\n' {
+		buf = append(buf, '\n')
+	}
+
+	l.msg <- buf
 }
 
 func OutputSql(state string, format string, v ...interface{}) {

@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"net"
 	"runtime"
-	"strconv"
 	"sync/atomic"
 	"time"
 
@@ -34,12 +33,6 @@ type Server struct {
 	user     string
 	password string
 	db       string
-	charset  string
-
-	logSqlIndex      int32
-	logSql           [2]string
-	slowLogTimeIndex int32
-	slowLogTime      [2]int
 
 	counter  *Counter
 	nodes    map[string]*backend.Node
@@ -90,10 +83,6 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	s.addr = cfg.Addr
 	s.user = cfg.User
 	s.password = cfg.Password
-	atomic.StoreInt32(&s.logSqlIndex, 0)
-	s.logSql[s.logSqlIndex] = cfg.LogSql
-	atomic.StoreInt32(&s.slowLogTimeIndex, 0)
-	s.slowLogTime[s.slowLogTimeIndex] = cfg.SlowLogTime
 
 	if err := s.parseNodes(); err != nil {
 		return nil, err
@@ -115,8 +104,8 @@ func NewServer(cfg *config.Config) (*Server, error) {
 
 func (s *Server) flushCounter() {
 	for {
-		s.counter.FlushCounter()
 		time.Sleep(1 * time.Second)
+		s.counter.FlushCounter()
 	}
 }
 
@@ -146,7 +135,6 @@ func (s *Server) newClientConn(co net.Conn) *ClientConn {
 	c.txConns = make(map[*backend.Node]*backend.BackendConn)
 
 	c.closed = false
-	c.charset = s.charset
 
 	return c
 }
@@ -174,41 +162,11 @@ func (s *Server) onConn(c net.Conn) {
 	if err := conn.Handshake(); err != nil {
 		golog.Info("server", "onConn", err.Error(), 0)
 		c.Close()
+		s.counter.IncrErrLogTotal()
 		return
 	}
 
 	conn.Run()
-}
-
-func (s *Server) changeLogSql(v string) error {
-	if s.logSqlIndex == 0 {
-		s.logSql[1] = v
-		atomic.StoreInt32(&s.logSqlIndex, 1)
-	} else {
-		s.logSql[0] = v
-		atomic.StoreInt32(&s.logSqlIndex, 0)
-	}
-	s.cfg.LogSql = v
-
-	return nil
-}
-
-func (s *Server) changeSlowLogTime(v string) error {
-	tmp, err := strconv.Atoi(v)
-	if err != nil {
-		return err
-	}
-
-	if s.slowLogTimeIndex == 0 {
-		s.slowLogTime[1] = tmp
-		atomic.StoreInt32(&s.slowLogTimeIndex, 1)
-	} else {
-		s.slowLogTime[0] = tmp
-		atomic.StoreInt32(&s.slowLogTimeIndex, 0)
-	}
-	s.cfg.SlowLogTime = tmp
-
-	return err
 }
 
 func (s *Server) handleSaveProxyConfig() error {

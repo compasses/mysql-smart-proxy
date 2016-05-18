@@ -258,6 +258,7 @@ func (c *ClientConn) Run() {
 	if err != nil {
 		golog.Error("ClientConn", "Run",
 			err.Error(), 0)
+		c.proxy.counter.IncrErrLogTotal()
 		return
 	}
 

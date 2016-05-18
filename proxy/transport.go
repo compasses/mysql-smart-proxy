@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"time"
 
 	"github.com/compasses/mysql-load-balancer/backend"
 	"github.com/compasses/mysql-load-balancer/core/golog"
 	"github.com/compasses/mysql-load-balancer/mysql"
+	"github.com/siddontang/mixer/hack"
 )
 
 type Transport struct {
@@ -40,7 +42,7 @@ func NewTransport(c *ClientConn) (*Transport, error) {
 		golog.Error("Transport", "NewTransport", "no backend connection available", c.connectionId, err.Error())
 		return nil, err
 	}
-	backConn.UseDB("ESHOPDB16")
+
 	t := new(Transport)
 
 	t.Client = TransPipe{
@@ -60,6 +62,11 @@ func NewTransport(c *ClientConn) (*Transport, error) {
 	t.backend = backConn
 	t.clientend = c
 
+	if len(c.db) > 0 {
+		golog.Info("Transport", "NewTransport", "Select DB", t.Client.cid, c.db)
+		backConn.UseDB(c.db)
+	}
+
 	return t, nil
 }
 
@@ -71,8 +78,12 @@ func (trans *Transport) Run() {
 		data, err := trans.Client.ReadClientRaw()
 		if err != nil {
 			golog.Warn("Transport", "Run", "client error", trans.Client.cid, err.Error())
+			trans.clientend.proxy.counter.IncrErrLogTotal()
 			return
 		}
+		trans.clientend.proxy.counter.IncrClientQPS()
+		isQuery := false
+		queryStr := ""
 
 		if len(data) > 4 {
 			cmd := data[4]
@@ -81,26 +92,34 @@ func (trans *Transport) Run() {
 				golog.Info("Transport", "Run", "client quit", trans.Client.cid)
 				return
 			case mysql.COM_PING:
-				trans.clientend.writeOK(nil)
+				trans.Client.WriteOK()
 				golog.Warn("Transport", "Run", "client ping", uint32(cmd))
 				continue
-				// case mysql.COM_INIT_DB:
-				// 	if err := trans.clientend.useDB(hack.String(data)); err != nil {
-				// 		return //err
-				// 	} else {
-				// 		trans.clientend.writeOK(nil)
-				// 	}
-				// 	golog.Warn("Transport", "Run", "client change DB", uint32(cmd), string(data[5:]))
-				// 	continue
-				//case mysql.COM_QUERY:
+			case mysql.COM_INIT_DB:
+				if err := trans.backend.UseDB(hack.String(data[5:])); err != nil {
+					golog.Warn("Transport", "Run", "Use DB error", trans.Client.cid, err.Error(), hack.String(data[5:]))
+					trans.clientend.proxy.counter.IncrErrLogTotal()
+					return
+				}
+				trans.Client.WriteOK()
+				continue
+			case mysql.COM_QUERY:
+				isQuery = true
+				queryStr = string(data[5:])
 			}
 			golog.Debug("Transport", "Run", "client command", uint32(cmd), string(data[5:]))
+		}
+
+		var tickNow time.Time
+		if isQuery && trans.clientend.proxy.cfg.LogSql == 1 {
+			tickNow = time.Now()
 		}
 
 		//send to server
 		err = trans.Server.Write(data)
 		if err != nil {
 			golog.Warn("Transport", "Run", "server write error", trans.Server.cid, err.Error())
+			trans.clientend.proxy.counter.IncrErrLogTotal()
 			return
 		}
 
@@ -110,13 +129,23 @@ func (trans *Transport) Run() {
 
 		if err != nil {
 			golog.Warn("Transport", "Run", "server read error", trans.Server.cid, err.Error())
+			trans.clientend.proxy.counter.IncrErrLogTotal()
 			return
+		}
+
+		if isQuery && trans.clientend.proxy.cfg.LogSql == 1 {
+			elapsed := time.Since(tickNow).Nanoseconds() / 1000000
+			if elapsed >= trans.clientend.proxy.cfg.SlowLogTime {
+				trans.clientend.proxy.counter.IncrSlowLogTotal()
+				golog.OutputSql("Slow Query", queryStr+" time:%vms", elapsed)
+			}
 		}
 
 		// send to client
 		err = trans.Client.Write(data)
 		if err != nil {
 			golog.Warn("Transport", "Run", "client write error", trans.Client.cid, err.Error())
+			trans.clientend.proxy.counter.IncrErrLogTotal()
 			return
 		}
 	}
@@ -220,6 +249,15 @@ func (trans *TransPipe) ReadServerRaw() ([]byte, error) {
 
 func (trans *TransPipe) Write(data []byte) error {
 	_, err := trans.pipe.Write(data)
+	return err
+}
+
+func (trans *TransPipe) WriteOK() error {
+	var data [11]byte
+	data[0] = 0x07
+	data[3] = 0x01
+	data[7] = 0x02
+	_, err := trans.pipe.Write(data[:])
 	return err
 }
 

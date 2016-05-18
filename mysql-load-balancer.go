@@ -36,6 +36,7 @@ var version *bool = flag.Bool("v", false, "the version of kingshard")
 const (
 	sqlLogName = "slow_query.log"
 	sysLogName = "proxy.log"
+	runLogName = "proxy_run.log"
 	MaxLogSize = 1024 * 1024 * 10
 )
 
@@ -82,6 +83,14 @@ func main() {
 			return
 		}
 		golog.GlobalSqlLogger = golog.New(sqlFile, golog.Lfile|golog.Ltime|golog.Llevel)
+
+		runFilePath := path.Join(cfg.LogPath, runLogName)
+		runFile, err := golog.NewRotatingFileHandler(runFilePath, MaxLogSize, 1)
+		if err != nil {
+			fmt.Printf("new log file error:%v\n", err.Error())
+			return
+		}
+		golog.GlobalRunLogger = golog.New(runFile, golog.Lfile|golog.Ltime|golog.Llevel)
 	}
 
 	if *logLevel != "" {
