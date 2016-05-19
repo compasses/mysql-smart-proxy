@@ -21,10 +21,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/compasses/mysql-load-balancer/backend"
-	"github.com/compasses/mysql-load-balancer/config"
-	"github.com/compasses/mysql-load-balancer/core/golog"
-	"github.com/compasses/mysql-load-balancer/mysql"
+	"github.com/compasses/mysql-smart-proxy/backend"
+	"github.com/compasses/mysql-smart-proxy/config"
+	"github.com/compasses/mysql-smart-proxy/core/golog"
+	"github.com/compasses/mysql-smart-proxy/mysql"
 )
 
 type Server struct {

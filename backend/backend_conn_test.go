@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"testing"
 
-	. "github.com/compasses/mysql-load-balancer/mysql"
+	. "github.com/compasses/mysql-smart-proxy/mysql"
 )
 
 func newTestConn() *Conn {

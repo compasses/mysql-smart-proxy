@@ -18,7 +18,7 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"github.com/compasses/mysql-load-balancer/core/hack"
+	"github.com/compasses/mysql-smart-proxy/core/hack"
 )
 
 func TestCalcPassword(t *testing.T) {

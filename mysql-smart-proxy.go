@@ -23,10 +23,10 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/compasses/mysql-load-balancer/config"
-	"github.com/compasses/mysql-load-balancer/core/golog"
-	"github.com/compasses/mysql-load-balancer/core/hack"
-	"github.com/compasses/mysql-load-balancer/proxy"
+	"github.com/compasses/mysql-smart-proxy/config"
+	"github.com/compasses/mysql-smart-proxy/core/golog"
+	"github.com/compasses/mysql-smart-proxy/core/hack"
+	"github.com/compasses/mysql-smart-proxy/proxy"
 )
 
 var configFile *string = flag.String("config", "msp.yaml", "MSP config file")

@@ -18,7 +18,7 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/compasses/mysql-load-balancer/core/yaml"
+	"github.com/compasses/mysql-smart-proxy/core/yaml"
 )
 
 //整个config文件对应的结构

@@ -21,7 +21,7 @@ package sqlparser
 import (
 	"errors"
 
-	"github.com/compasses/mysql-load-balancer/sqltypes"
+	"github.com/compasses/mysql-smart-proxy/sqltypes"
 )
 
 // Instructions for creating new types: If a type

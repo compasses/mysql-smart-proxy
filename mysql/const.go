@@ -18,7 +18,7 @@ const (
 	MinProtocolVersion byte   = 10
 	MaxPayloadLen      int    = 1<<24 - 1
 	TimeFormat         string = "2006-01-02 15:04:05"
-	ServerVersion      string = "0.1-anywhere-mysql-load-balancer"
+	ServerVersion      string = "0.1-anywhere-mysql-smart-proxy"
 )
 
 const (

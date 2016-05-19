@@ -18,7 +18,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/compasses/mysql-load-balancer/core/errors"
+	"github.com/compasses/mysql-smart-proxy/core/errors"
 )
 
 func Gcd(ary []int) int {

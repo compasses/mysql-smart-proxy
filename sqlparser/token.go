@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/compasses/mysql-load-balancer/sqltypes"
+	"github.com/compasses/mysql-smart-proxy/sqltypes"
 )
 
 const EOFCHAR = 0x100

@@ -19,8 +19,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/compasses/mysql-load-balancer/backend"
-	"github.com/compasses/mysql-load-balancer/config"
+	"github.com/compasses/mysql-smart-proxy/backend"
+	"github.com/compasses/mysql-smart-proxy/config"
 )
 
 var testServerOnce sync.Once

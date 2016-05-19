@@ -21,9 +21,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/compasses/mysql-load-balancer/config"
-	"github.com/compasses/mysql-load-balancer/core/errors"
-	"github.com/compasses/mysql-load-balancer/core/golog"
+	"github.com/compasses/mysql-smart-proxy/config"
+	"github.com/compasses/mysql-smart-proxy/core/errors"
+	"github.com/compasses/mysql-smart-proxy/core/golog"
 )
 
 const (

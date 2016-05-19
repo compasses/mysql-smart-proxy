@@ -17,7 +17,7 @@ package backend
 import (
 	"testing"
 
-	"github.com/compasses/mysql-load-balancer/config"
+	"github.com/compasses/mysql-smart-proxy/config"
 )
 
 func TestParse(t *testing.T) {

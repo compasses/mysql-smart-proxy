@@ -20,7 +20,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/compasses/mysql-load-balancer/core/errors"
+	"github.com/compasses/mysql-smart-proxy/core/errors"
 )
 
 const (

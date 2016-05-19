@@ -17,7 +17,7 @@ package server
 import (
 	"sync/atomic"
 
-	"github.com/compasses/mysql-load-balancer/core/golog"
+	"github.com/compasses/mysql-smart-proxy/core/golog"
 )
 
 type Counter struct {

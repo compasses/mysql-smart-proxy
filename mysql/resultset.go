@@ -20,7 +20,7 @@ import (
 	"math"
 	"strconv"
 
-	"github.com/compasses/mysql-load-balancer/core/hack"
+	"github.com/compasses/mysql-smart-proxy/core/hack"
 )
 
 type RowData []byte

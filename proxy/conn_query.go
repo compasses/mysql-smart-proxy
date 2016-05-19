@@ -15,8 +15,8 @@
 package server
 
 import (
-	"github.com/compasses/mysql-load-balancer/backend"
-	"github.com/compasses/mysql-load-balancer/core/golog"
+	"github.com/compasses/mysql-smart-proxy/backend"
+	"github.com/compasses/mysql-smart-proxy/core/golog"
 )
 
 func (c *ClientConn) GetBackendConn(nodeName string) (co *backend.BackendConn, err error) {

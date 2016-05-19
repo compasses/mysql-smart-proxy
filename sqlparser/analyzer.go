@@ -24,7 +24,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/compasses/mysql-load-balancer/sqltypes"
+	"github.com/compasses/mysql-smart-proxy/sqltypes"
 )
 
 // GetDBName parses the specified DML and returns the

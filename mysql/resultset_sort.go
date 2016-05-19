@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/compasses/mysql-load-balancer/core/hack"
+	"github.com/compasses/mysql-smart-proxy/core/hack"
 )
 
 const (

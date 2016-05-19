@@ -6,9 +6,9 @@ import (
 	"net"
 	"time"
 
-	"github.com/compasses/mysql-load-balancer/backend"
-	"github.com/compasses/mysql-load-balancer/core/golog"
-	"github.com/compasses/mysql-load-balancer/mysql"
+	"github.com/compasses/mysql-smart-proxy/backend"
+	"github.com/compasses/mysql-smart-proxy/core/golog"
+	"github.com/compasses/mysql-smart-proxy/mysql"
 	"github.com/siddontang/mixer/hack"
 )
 
