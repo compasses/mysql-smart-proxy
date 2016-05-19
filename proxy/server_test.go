@@ -1,4 +1,4 @@
-// Copyright 2016 The kingshard Authors. All rights reserved.
+// Copyright 2016 The MSP Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"): you may
 // not use this file except in compliance with the License. You may obtain
@@ -44,7 +44,7 @@ nodes :
     slave : 
 
 schema :
-    db : kingshard
+    db : MSP
     default: node1  
     nodes: [node1]
     rules:
@@ -78,7 +78,7 @@ func newTestDB(t *testing.T) *backend.DB {
 	newTestServer(t)
 
 	f := func() {
-		testDB, _ = backend.Open("127.0.0.1:3601", "root", "", "kingshard", 100)
+		testDB, _ = backend.Open("127.0.0.1:3601", "root", "", "MSP", 100)
 	}
 
 	testDBOnce.Do(f)

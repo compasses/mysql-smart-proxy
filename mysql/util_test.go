@@ -1,4 +1,4 @@
-// Copyright 2016 The kingshard Authors. All rights reserved.
+// Copyright 2016 The MSP Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"): you may
 // not use this file except in compliance with the License. You may obtain
@@ -29,7 +29,7 @@ func TestCalcPassword(t *testing.T) {
 		hex:
 			406a783d645f337a34323b73532459725329707c
 		pass:
-			kingshard
+			MSP
 		scramble:
 			fbc71db5ac3d7b51048d1a1d88c1677f34bcca11
 	*/
@@ -41,7 +41,7 @@ func TestCalcPassword(t *testing.T) {
 	hex_seed := hex.EncodeToString(seed)
 
 	t.Logf("seed: %s equal %s, pass: %v", "406a783d645f337a34323b73532459725329707c", hex_seed, "406a783d645f337a34323b73532459725329707c" == hex_seed)
-	scramble := CalcPassword(seed, hack.Slice("kingshard"))
+	scramble := CalcPassword(seed, hack.Slice("MSP"))
 
 	hex_scramble := hex.EncodeToString(scramble)
 	t.Logf("scramble: %s equal %s, pass: %v", "fbc71db5ac3d7b51048d1a1d88c1677f34bcca11", hex_scramble, "fbc71db5ac3d7b51048d1a1d88c1677f34bcca11" == hex_scramble)

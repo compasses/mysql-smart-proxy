@@ -1,9 +1,9 @@
 #!/bin/bash
 
 export VTTOP=$(pwd)
-export VTROOT="${VTROOT:-${VTTOP/\/src\/github.com\/flike\/kingshard/}}"
+export VTROOT="${VTROOT:-${VTTOP/\/src\/github.com\/flike\/MSP/}}"
 # VTTOP sanity check
-if [[ "$VTTOP" == "${VTTOP/\/src\/github.com\/flike\/kingshard/}" ]]; then
+if [[ "$VTTOP" == "${VTTOP/\/src\/github.com\/flike\/MSP/}" ]]; then
   echo "WARNING: VTTOP($VTTOP) does not contain src/github.com/compasses/mysql-load-balancer"
 fi
 

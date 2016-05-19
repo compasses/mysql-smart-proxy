@@ -1,4 +1,4 @@
-go build -gcflags "-N -l" mysql-load-balancer.go
+go build -gcflags "-N -l" mysql-smart-proxy.go
 
 version=`git log --date=iso --pretty=format:"%cd @%h" -1`
 if [ $? -ne 0 ]; then

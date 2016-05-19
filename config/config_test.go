@@ -1,4 +1,4 @@
-// Copyright 2016 The kingshard Authors. All rights reserved.
+// Copyright 2016 The MSP Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"): you may
 // not use this file except in compliance with the License. You may obtain
@@ -51,7 +51,7 @@ nodes :
   master : 127.0.0.1:3308
 
 schema :
-  db : kingshard 
+  db : MSP 
   nodes: [node1, node2, node3]
   default: node1
   shard:
@@ -137,7 +137,7 @@ schema :
 	}
 
 	testSchema := SchemaConfig{
-		DB:        "kingshard",
+		DB:        "MSP",
 		Nodes:     []string{"node1", "node2", "node3"},
 		Default:   "node1",
 		ShardRule: []ShardConfig{testShard_1, testShard_2},

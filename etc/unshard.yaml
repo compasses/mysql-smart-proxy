@@ -2,8 +2,8 @@
 addr : 0.0.0.0:9696
 
 # server user and password
-user :  kingshard
-password : kingshard
+user :  MSP
+password : MSP
 
 # if set log_path, the sql log will write into log_path/sql.log,the system log
 # will write into log_path/sys.log
@@ -19,14 +19,14 @@ log_level : debug
 #slow_log_time : 100
 
 # blacklist sql file path
-# all these sqls in this file will been forbidden by kingshard
+# all these sqls in this file will been forbidden by MSP
 #blacklist_sql_file: /Users/flike/blacklist
 
-# only allow this ip list ip to connect kingshard
+# only allow this ip list ip to connect MSP
 #allow_ips: 127.0.0.1
 
-# the charset of kingshard, if you don't set this item
-# the default charset of kingshard is utf8.
+# the charset of MSP, if you don't set this item
+# the default charset of MSP is utf8.
 #proxy_charset: gbk
 
 # node is an agenda for real remote mysql server.
@@ -38,8 +38,8 @@ nodes :
     max_conns_limit : 32
 
     # all mysql in a node must have the same user and password
-    user :  kingshard
-    password : kingshard
+    user :  MSP
+    password : MSP
 
     # master represents a real mysql master server
     master : 127.0.0.1:3306
@@ -52,7 +52,7 @@ nodes :
 # schema defines which db can be used by client and this db's sql will be executed in which nodes, 
 # the db is also the default database
 schema :
-    db : kingshard
+    db : MSP
     nodes: [node1]
     default: node1
     shard:

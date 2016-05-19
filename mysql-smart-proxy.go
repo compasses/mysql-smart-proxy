@@ -1,4 +1,4 @@
-// Copyright 2016 The kingshard Authors. All rights reserved.
+// Copyright 2016 The MSP Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"): you may
 // not use this file except in compliance with the License. You may obtain
@@ -29,9 +29,9 @@ import (
 	"github.com/compasses/mysql-load-balancer/proxy"
 )
 
-var configFile *string = flag.String("config", "ks.yaml", "kingshard config file")
+var configFile *string = flag.String("config", "msp.yaml", "MSP config file")
 var logLevel *string = flag.String("log-level", "", "log level [debug|info|warn|error], default error")
-var version *bool = flag.Bool("v", false, "the version of kingshard")
+var version *bool = flag.Bool("v", false, "the version of MSP")
 
 const (
 	sqlLogName = "slow_query.log"
@@ -66,7 +66,7 @@ func main() {
 		return
 	}
 
-	//when the log file size greater than 1GB, kingshard will generate a new file
+	//when the log file size greater than 1GB, MSP will generate a new file
 	if len(cfg.LogPath) != 0 {
 		sysFilePath := path.Join(cfg.LogPath, sysLogName)
 		sysFile, err := golog.NewRotatingFileHandler(sysFilePath, MaxLogSize, 1)
