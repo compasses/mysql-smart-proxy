@@ -1,6 +1,7 @@
 package server
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -84,9 +85,10 @@ func (trans *Transport) Run() {
 		trans.clientend.proxy.counter.IncrClientQPS()
 		isQuery := false
 		queryStr := ""
+		var cmd byte
 
 		if len(data) > 4 {
-			cmd := data[4]
+			cmd = data[4]
 			switch cmd {
 			case mysql.COM_QUIT:
 				golog.Info("Transport", "Run", "client quit", trans.Client.cid)
@@ -124,7 +126,7 @@ func (trans *Transport) Run() {
 		}
 
 		//read response from server
-		data, err = trans.Server.ReadServerRaw()
+		data, err = trans.Server.ReadServerRaw(cmd)
 		golog.Debug("Transport", "Run", "server read ", trans.Server.cid, data)
 
 		if err != nil {
@@ -216,7 +218,7 @@ func (trans *TransPipe) ReadServerRows() ([]byte, error) {
 	return trans.ReadServerColumns()
 }
 
-func (trans *TransPipe) ReadServerRaw() ([]byte, error) {
+func (trans *TransPipe) ReadServerDefault() ([]byte, error) {
 	data, err := trans.ReadPacket()
 	if err != nil {
 		return nil, err
@@ -245,6 +247,70 @@ func (trans *TransPipe) ReadServerRaw() ([]byte, error) {
 	}
 	data = append(data, cols...)
 	return append(data, rows...), nil
+}
+
+func (trans *TransPipe) ReadServerPrepareResponse() ([]byte, error) {
+	// 	* `COM_STMT_PREPARE OK packet`_
+	// * if num-params > 0
+	//
+	//   * num-params * `Column Definition`_
+	//   * `EOF packet`_
+	//
+	// * if num-columns > 0
+	//
+	//   * num-colums * `Column Definition`_
+	//   * `EOF packet`_
+	// payload:
+	// 1              [00] OK
+	// 4              statement-id
+	// 2              num-columns
+	// 2              num-params
+	// 1              [00] filler
+	// 2              warning count
+	data, err := trans.ReadPacket()
+	if err != nil {
+		return nil, err
+	}
+
+	if data[4] != mysql.OK_HEADER {
+		return data, nil
+	}
+	if len(data[4:]) < 9 {
+		return data, errors.New("prepare statement response error.")
+	}
+	//data[5,6,7,8] statement-id
+	//length := int(uint32(header[0]) | uint32(header[1])<<8 | uint32(header[2])<<16)
+	numColumns := int(uint32(data[9]) | uint32(data[10])<<8)
+	numParams := int(uint32(data[11]) | uint32(data[12])<<8)
+
+	if numColumns > 0 {
+		//read result columns
+		cols, err := trans.ReadServerColumns()
+		if err != nil {
+			return nil, err
+		}
+		data = append(data, cols...)
+	}
+
+	if numParams > 0 {
+		//read result rows
+		rows, err := trans.ReadServerRows()
+		if err != nil {
+			return nil, err
+		}
+		data = append(data, rows...)
+	}
+
+	return data, nil
+}
+
+func (trans *TransPipe) ReadServerRaw(cmd byte) ([]byte, error) {
+	switch cmd {
+	case mysql.COM_STMT_PREPARE:
+		return trans.ReadServerPrepareResponse()
+	default:
+		return trans.ReadServerDefault()
+	}
 }
 
 func (trans *TransPipe) Write(data []byte) error {

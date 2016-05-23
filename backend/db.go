@@ -15,7 +15,6 @@
 package backend
 
 import (
-	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -255,7 +254,7 @@ func (db *DB) PopConn() (*Conn, error) {
 	}
 	co = db.GetConnFromCache(cacheConns)
 	if co == nil {
-		fmt.Println("No cached connection available!!")
+		//fmt.Println("No cached connection available!!")
 		co, err = db.GetConnFromIdle(cacheConns, idleConns)
 
 		if err != nil {
@@ -281,7 +280,7 @@ func (db *DB) GetConnFromCache(cacheConns chan *Conn) *Conn {
 		if co != nil && PingPeroid < time.Now().Unix()-co.pushTimestamp {
 			err = co.Ping()
 			if err != nil {
-				fmt.Println("Ping error: ", db.connectionId)
+				//fmt.Println("Ping error: ", db.connectionId)
 				db.closeConn(co)
 				co = nil
 			}
