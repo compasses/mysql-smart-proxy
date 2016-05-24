@@ -15,8 +15,7 @@ import (
 type Transport struct {
 	Client     TransPipe
 	dbSelected bool
-
-	clientend *ClientConn
+	clientend  *ClientConn
 }
 
 type TransPipe struct {
@@ -24,11 +23,6 @@ type TransPipe struct {
 	info string
 	cid  uint32
 }
-
-const (
-	readBuf      int = 1024
-	readLargeBuf int = 1024 * 1024 * 16
-)
 
 func NewTransport(c *ClientConn) (*Transport, error) {
 

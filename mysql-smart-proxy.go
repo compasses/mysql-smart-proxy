@@ -26,7 +26,7 @@ import (
 	"github.com/compasses/mysql-smart-proxy/config"
 	"github.com/compasses/mysql-smart-proxy/core/golog"
 	"github.com/compasses/mysql-smart-proxy/core/hack"
-	"github.com/compasses/mysql-smart-proxy/proxy"
+	"github.com/compasses/mysql-smart-proxy/server"
 )
 
 var configFile *string = flag.String("config", "msp.yaml", "MSP config file")

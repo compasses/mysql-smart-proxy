@@ -21,7 +21,6 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/compasses/mysql-smart-proxy/backend"
 	"github.com/compasses/mysql-smart-proxy/core/golog"
 	"github.com/compasses/mysql-smart-proxy/mysql"
 )
@@ -30,11 +29,9 @@ import (
 type ClientConn struct {
 	sync.Mutex
 
-	pkg *mysql.PacketIO
-
-	c net.Conn
-
+	pkg   *mysql.PacketIO
 	proxy *Server
+	c     net.Conn
 
 	capability uint32
 
@@ -49,7 +46,7 @@ type ClientConn struct {
 
 	salt []byte
 
-	txConns map[*backend.Node]*backend.BackendConn
+	txConns map[*Node]*BackendConn
 
 	closed       bool
 	lastInsertId int64
@@ -256,8 +253,7 @@ func (c *ClientConn) Run() {
 
 	trans, err := NewTransport(c)
 	if err != nil {
-		golog.Error("ClientConn", "Run",
-			err.Error(), 0)
+		golog.Error("ClientConn", "Run", err.Error(), 0)
 		c.proxy.counter.IncrErrLogTotal()
 		return
 	}

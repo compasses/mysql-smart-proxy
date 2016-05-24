@@ -14,17 +14,14 @@
 
 package server
 
-import (
-	"github.com/compasses/mysql-smart-proxy/backend"
-	"github.com/compasses/mysql-smart-proxy/core/golog"
-)
+import "github.com/compasses/mysql-smart-proxy/core/golog"
 
-func (c *ClientConn) GetBackendConn(nodeName string) (co *backend.BackendConn, err error) {
+func (c *ClientConn) GetBackendConn(nodeName string) (co *BackendConn, err error) {
 	node := c.proxy.GetNode(nodeName)
 	return c.getBackendConn(node, false)
 }
 
-func (c *ClientConn) getBackendConn(n *backend.Node, fromSlave bool) (co *backend.BackendConn, err error) {
+func (c *ClientConn) getBackendConn(n *Node, fromSlave bool) (co *BackendConn, err error) {
 	co, err = n.GetMasterConn()
 	if err != nil {
 		golog.Error("Server", "getBackendConn from master", err.Error(), 0)

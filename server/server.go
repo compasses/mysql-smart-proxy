@@ -21,7 +21,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/compasses/mysql-smart-proxy/backend"
 	"github.com/compasses/mysql-smart-proxy/config"
 	"github.com/compasses/mysql-smart-proxy/core/golog"
 	"github.com/compasses/mysql-smart-proxy/mysql"
@@ -35,14 +34,14 @@ type Server struct {
 	db       string
 
 	counter  *Counter
-	nodes    map[string]*backend.Node
+	nodes    map[string]*Node
 	listener net.Listener
 	running  bool
 }
 
-func (s *Server) parseNode(cfg config.NodeConfig) (*backend.Node, error) {
+func (s *Server) parseNode(cfg config.NodeConfig) (*Node, error) {
 	var err error
-	n := new(backend.Node)
+	n := new(Node)
 	n.Cfg = cfg
 
 	n.DownAfterNoAlive = time.Duration(cfg.DownAfterNoAlive) * time.Second
@@ -57,7 +56,7 @@ func (s *Server) parseNode(cfg config.NodeConfig) (*backend.Node, error) {
 
 func (s *Server) parseNodes() error {
 	cfg := s.cfg
-	s.nodes = make(map[string]*backend.Node, len(cfg.Nodes))
+	s.nodes = make(map[string]*Node, len(cfg.Nodes))
 
 	for _, v := range cfg.Nodes {
 		if _, ok := s.nodes[v.Name]; ok {
@@ -132,7 +131,7 @@ func (s *Server) newClientConn(co net.Conn) *ClientConn {
 
 	c.salt, _ = mysql.RandomBuf(20)
 
-	c.txConns = make(map[*backend.Node]*backend.BackendConn)
+	c.txConns = make(map[*Node]*BackendConn)
 
 	c.closed = false
 
@@ -252,7 +251,7 @@ func (s *Server) DownMaster(node, masterAddr string) error {
 	if n == nil {
 		return fmt.Errorf("invalid node %s", node)
 	}
-	return n.DownMaster(masterAddr, backend.ManualDown)
+	return n.DownMaster(masterAddr, ManualDown)
 }
 
 func (s *Server) DownSlave(node, slaveAddr string) error {
@@ -260,9 +259,9 @@ func (s *Server) DownSlave(node, slaveAddr string) error {
 	if n == nil {
 		return fmt.Errorf("invalid node [%s].", node)
 	}
-	return n.DownSlave(slaveAddr, backend.ManualDown)
+	return n.DownSlave(slaveAddr, ManualDown)
 }
 
-func (s *Server) GetNode(name string) *backend.Node {
+func (s *Server) GetNode(name string) *Node {
 	return s.nodes[name]
 }

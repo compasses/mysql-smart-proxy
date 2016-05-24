@@ -19,7 +19,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/compasses/mysql-smart-proxy/backend"
 	"github.com/compasses/mysql-smart-proxy/config"
 )
 
@@ -31,21 +30,21 @@ var testDB *backend.DB
 var testConfigData = []byte(`
 addr : 127.0.0.1:9696
 user : root
-password : 
+password :
 
 nodes :
-- 
-    name : node1 
+-
+    name : node1
     down_after_noalive : 300
     idle_conns : 16
     user: root
     password:
     master : 127.0.0.1:3306
-    slave : 
+    slave :
 
 schema :
     db : MSP
-    default: node1  
+    default: node1
     nodes: [node1]
     rules:
         shard:
@@ -74,7 +73,7 @@ func newTestServer(t *testing.T) *Server {
 	return testServer
 }
 
-func newTestDB(t *testing.T) *backend.DB {
+func newTestDB(t *testing.T) *DB {
 	newTestServer(t)
 
 	f := func() {
@@ -85,7 +84,7 @@ func newTestDB(t *testing.T) *backend.DB {
 	return testDB
 }
 
-func newTestDBConn(t *testing.T) *backend.BackendConn {
+func newTestDBConn(t *testing.T) *BackendConn {
 	db := newTestDB(t)
 
 	c, err := db.GetConn()
