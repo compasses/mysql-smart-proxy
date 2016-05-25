@@ -24,7 +24,7 @@ func (c *ClientConn) GetBackendConn(nodeName string) (co *BackendConn, err error
 func (c *ClientConn) getBackendConn(n *Node, fromSlave bool) (co *BackendConn, err error) {
 	co, err = n.GetMasterConn()
 	if err != nil {
-		golog.Error("Server", "getBackendConn from master", err.Error(), 0)
+		golog.Warn("Server", "getBackendConn from master", err.Error(), 0)
 		co, err = n.GetSlaveConn()
 		if err != nil {
 			golog.Error("Server", "getBackendConn from slave failed, no connection available!", err.Error(), 0)

@@ -20,6 +20,13 @@ import (
 	"github.com/compasses/mysql-smart-proxy/core/golog"
 )
 
+type NodeInfo struct {
+	//ID
+	ConnectInUse int64
+	ConnectIdle  int64
+	ConnectCache int64
+}
+
 type Counter struct {
 	OldClientQPS    int64
 	OldErrLogTotal  int64
@@ -29,6 +36,38 @@ type Counter struct {
 	ClientQPS    int64
 	ErrLogTotal  int64
 	SlowLogTotal int64
+	NodeInfo
+}
+
+// simplily count all
+func (counter *Counter) FlushDBConnectionInfo(totalInUse, totalCache, totalIdel int64) {
+	atomic.StoreInt64(&counter.NodeInfo.ConnectIdle, totalIdel)
+	atomic.StoreInt64(&counter.NodeInfo.ConnectCache, totalCache)
+	atomic.StoreInt64(&counter.NodeInfo.ConnectInUse, totalInUse)
+}
+
+func (counter *Counter) IncrConnectInUse() {
+	atomic.AddInt64(&counter.NodeInfo.ConnectInUse, 1)
+}
+
+func (counter *Counter) DecrConnectInUse() {
+	atomic.AddInt64(&counter.NodeInfo.ConnectInUse, -1)
+}
+
+func (counter *Counter) IncrConnectIdle() {
+	atomic.AddInt64(&counter.NodeInfo.ConnectIdle, 1)
+}
+
+func (counter *Counter) DecrConnectIdle() {
+	atomic.AddInt64(&counter.NodeInfo.ConnectIdle, -1)
+}
+
+func (counter *Counter) IncrConnectCache() {
+	atomic.AddInt64(&counter.NodeInfo.ConnectCache, 1)
+}
+
+func (counter *Counter) DecrConnectCache() {
+	atomic.AddInt64(&counter.NodeInfo.ConnectCache, -1)
 }
 
 func (counter *Counter) IncrClientConns() {
@@ -53,7 +92,9 @@ func (counter *Counter) IncrSlowLogTotal() {
 
 //flush the count per second
 func (counter *Counter) FlushCounter() {
-	golog.RunInfo("Client QPS:%d, Client Conns:%d, Error Counts:%d, Slow Log Counts:%d", counter.OldClientQPS, counter.ClientConns, counter.ErrLogTotal, counter.SlowLogTotal)
+	golog.RunInfo("Proxy Info ==> QPS:%d, Client Connect:%d, Error:%d, Slow:%d Connection Info ==> Used:%d, Cached:%d, Idle:%d", counter.OldClientQPS, counter.ClientConns, counter.ErrLogTotal, counter.SlowLogTotal,
+		counter.NodeInfo.ConnectInUse, counter.NodeInfo.ConnectCache, counter.NodeInfo.ConnectIdle)
+
 	atomic.StoreInt64(&counter.OldClientQPS, counter.ClientQPS)
 	atomic.StoreInt64(&counter.OldErrLogTotal, counter.ErrLogTotal)
 	atomic.StoreInt64(&counter.OldSlowLogTotal, counter.SlowLogTotal)

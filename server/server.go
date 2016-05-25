@@ -103,7 +103,27 @@ func NewServer(cfg *config.Config) (*Server, error) {
 
 func (s *Server) flushCounter() {
 	for {
+		var totalInUse int64 = 0
+		var totalCache int64 = 0
+		var totalIdel int64 = 0
 		time.Sleep(1 * time.Second)
+		for _, node := range s.nodes {
+			if node.Master != nil {
+				totalInUse += node.Master.ConnectInUse
+				totalCache += node.Master.ConnectCache
+				totalIdel += node.Master.ConnectIdle
+			}
+
+			for _, sl := range node.Slave {
+				if sl == nil {
+					continue
+				}
+				totalInUse += sl.ConnectInUse
+				totalCache += sl.ConnectCache
+				totalIdel += sl.ConnectIdle
+			}
+		}
+		s.counter.FlushDBConnectionInfo(totalInUse, totalCache, totalIdel)
 		s.counter.FlushCounter()
 	}
 }
