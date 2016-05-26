@@ -40,21 +40,28 @@ func NewTransport(c *ClientConn) (*Transport, error) {
 
 func (trans *Transport) ExecServerEnd(data []byte) error {
 	//got backend connection
-	backConn, err := trans.clientend.GetBackendConn("node1")
-	defer backConn.Close()
+	var backConn *BackendConn
+	var err error
+	if trans.clientend.txConn != nil {
+		backConn = trans.clientend.txConn
+	} else {
+		// just use the default node
+		backConn, err = trans.clientend.GetBackendConn("node1")
+	}
 
 	if err != nil {
 		golog.Error("Transport", "NewTransport", "no backend connection available", trans.clientend.connectionId, err.Error())
 		return err
 	}
 
-	if len(trans.clientend.db) > 0 {
-		golog.Info("Transport", "NewTransport", "Select DB", trans.Client.cid, trans.clientend.db)
-		backConn.UseDB(trans.clientend.db)
-		trans.dbSelected = true
-	} else {
-		golog.Warn("Transport", "NewTransport", "No DB select for client", trans.clientend.connectionId, hack.String(data[5:]))
-	}
+	trans.clientend.proxy.counter.IncrConnectInUse()
+	defer func() {
+		if trans.clientend.txConn == nil {
+			// not in transaction
+			backConn.Close()
+			trans.clientend.proxy.counter.DecrConnectInUse()
+		}
+	}()
 
 	server := TransPipe{
 		pipe: backConn.Conn.GetTCPConnect(),
@@ -67,13 +74,30 @@ func (trans *Transport) ExecServerEnd(data []byte) error {
 	var isQuery bool
 	queryStr := ""
 	cmd := data[4]
-
-	if data[4] == mysql.COM_QUERY {
+	switch cmd {
+	case mysql.COM_QUERY:
 		isQuery = true
 		queryStr = hack.String(data[5:])
+		break
+	case mysql.COM_STMT_PREPARE:
+		if trans.clientend.txConn == nil {
+			trans.clientend.txConn = backConn
+			trans.clientend.proxy.counter.IncrTxConn()
+		}
+		break
 	}
 
-	golog.Warn("Transport", "Run", "client command", server.cid, uint32(cmd), hack.String(data[5:]))
+	if len(trans.clientend.db) > 0 {
+		golog.Info("Transport", "NewTransport", "Select DB", trans.Client.cid, trans.clientend.db)
+		backConn.UseDB(trans.clientend.db)
+		trans.dbSelected = true
+	} else {
+		if isQuery {
+			golog.Warn("Transport", "NewTransport", "No DB select for client", trans.clientend.connectionId, hack.String(data[5:]))
+		}
+	}
+
+	golog.Info("Transport", "Run", "client command", server.cid, uint32(cmd), hack.String(data[5:]))
 
 	var tickNow time.Time
 	if isQuery && trans.clientend.proxy.cfg.LogSql == 1 {
@@ -118,9 +142,21 @@ func (trans *Transport) ExecServerEnd(data []byte) error {
 
 func (trans *Transport) Run() {
 	golog.Info("Transport", "Run", "Start transfer", trans.Client.cid, trans.Client.info)
+	defer func() {
+		if trans.clientend.txConn != nil {
+			trans.clientend.txConn.Close()
+			trans.clientend.proxy.counter.DecrTxConn()
+			trans.clientend.proxy.counter.DecrConnectInUse()
+		}
+	}()
 
 	for {
 		data, err := trans.Client.ReadClientRaw()
+		if data == nil && err == nil {
+			//client reset connect
+			return
+		}
+
 		if err != nil {
 			golog.Warn("Transport", "Run", "client error", trans.Client.cid, err.Error())
 			trans.clientend.proxy.counter.IncrErrLogTotal()
@@ -160,6 +196,10 @@ func (trans *TransPipe) ReadPacket() ([]byte, error) {
 	header := []byte{0, 0, 0, 0}
 
 	if _, err := io.ReadFull(trans.pipe, header); err != nil {
+		if err == io.EOF {
+			golog.Warn("Transport", "Read Packet", "Receive EOF", trans.cid)
+			return nil, nil
+		}
 		return nil, mysql.ErrBadConn
 	}
 	length := int(uint32(header[0]) | uint32(header[1])<<8 | uint32(header[2])<<16)
@@ -231,7 +271,7 @@ func (trans *TransPipe) ReadServerDefault() ([]byte, error) {
 		return data, nil
 	} else if data[4] == mysql.ERR_HEADER {
 		golog.Error("Transport", "Read Server Default", "got error response", trans.cid, hack.String(data[5:]))
-		return nil, errors.New(hack.String(data[5:]))
+		return data, nil //errors.New(hack.String(data[5:]))
 	}
 
 	// must be a result set

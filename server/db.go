@@ -48,7 +48,6 @@ type DB struct {
 	cacheConns   chan *Conn
 	checkConn    *Conn
 	connectionId uint32
-	ConnectInUse int64
 	ConnectIdle  int64
 	ConnectCache int64
 }
@@ -63,7 +62,6 @@ func Open(addr string, user string, password string, dbName string, maxConnNum i
 	db.connectionId = 1
 	db.ConnectCache = 0
 	db.ConnectIdle = 0
-	db.ConnectInUse = 0
 
 	if 0 < maxConnNum {
 		db.maxConnNum = maxConnNum
@@ -96,13 +94,11 @@ func Open(addr string, user string, password string, dbName string, maxConnNum i
 			}
 			conn.pushTimestamp = time.Now().Unix()
 			db.cacheConns <- conn
-			db.ConnectCache++
 		} else {
 			conn := new(Conn)
 			conn.connectionId = db.connectionId
 			db.connectionId++
 			db.idleConns <- conn
-			db.ConnectIdle++
 		}
 	}
 
@@ -126,10 +122,16 @@ func (db *DB) State() string {
 	return state
 }
 
-func (db *DB) IdleConnCount() int {
+func (db *DB) CacheConnCount() int64 {
 	db.RLock()
 	defer db.RUnlock()
-	return len(db.cacheConns)
+	return int64(len(db.cacheConns))
+}
+
+func (db *DB) IdleConnCount() int64 {
+	db.RLock()
+	defer db.RUnlock()
+	return int64(len(db.idleConns))
 }
 
 func (db *DB) Close() error {
@@ -212,7 +214,6 @@ func (db *DB) closeConn(co *Conn) error {
 		if conns != nil {
 			select {
 			case conns <- co:
-				db.ConnectIdle++
 				return nil
 			default:
 				return nil
@@ -298,7 +299,6 @@ func (db *DB) GetConnFromCache(cacheConns chan *Conn) *Conn {
 			break
 		}
 	}
-	db.ConnectCache--
 	return co
 }
 
@@ -325,7 +325,6 @@ func (db *DB) GetConnFromIdle(cacheConns, idleConns chan *Conn) (*Conn, error) {
 			}
 		}
 	}
-	db.ConnectIdle--
 	return co, nil
 }
 
@@ -333,7 +332,6 @@ func (db *DB) PushConn(co *Conn, err error) {
 	if co == nil {
 		return
 	}
-	db.ConnectInUse--
 	conns := db.getCacheConns()
 	if conns == nil {
 		co.Close()
@@ -346,7 +344,6 @@ func (db *DB) PushConn(co *Conn, err error) {
 	co.pushTimestamp = time.Now().Unix()
 	select {
 	case conns <- co:
-		db.ConnectCache++
 		return
 	default:
 		db.closeConn(co)
@@ -375,6 +372,5 @@ func (db *DB) GetConn() (*BackendConn, error) {
 	if err != nil {
 		return nil, err
 	}
-	db.ConnectInUse++
 	return &BackendConn{c, db}, nil
 }

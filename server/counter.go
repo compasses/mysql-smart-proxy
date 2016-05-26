@@ -22,7 +22,6 @@ import (
 
 type NodeInfo struct {
 	//ID
-	ConnectInUse int64
 	ConnectIdle  int64
 	ConnectCache int64
 }
@@ -36,22 +35,24 @@ type Counter struct {
 	ClientQPS    int64
 	ErrLogTotal  int64
 	SlowLogTotal int64
+	TxConnNum    int64
+	ConnectInUse int64
+
 	NodeInfo
 }
 
 // simplily count all
-func (counter *Counter) FlushDBConnectionInfo(totalInUse, totalCache, totalIdel int64) {
+func (counter *Counter) FlushDBConnectionInfo(totalCache, totalIdel int64) {
 	atomic.StoreInt64(&counter.NodeInfo.ConnectIdle, totalIdel)
 	atomic.StoreInt64(&counter.NodeInfo.ConnectCache, totalCache)
-	atomic.StoreInt64(&counter.NodeInfo.ConnectInUse, totalInUse)
 }
 
 func (counter *Counter) IncrConnectInUse() {
-	atomic.AddInt64(&counter.NodeInfo.ConnectInUse, 1)
+	atomic.AddInt64(&counter.ConnectInUse, 1)
 }
 
 func (counter *Counter) DecrConnectInUse() {
-	atomic.AddInt64(&counter.NodeInfo.ConnectInUse, -1)
+	atomic.AddInt64(&counter.ConnectInUse, -1)
 }
 
 func (counter *Counter) IncrConnectIdle() {
@@ -82,6 +83,14 @@ func (counter *Counter) IncrClientQPS() {
 	atomic.AddInt64(&counter.ClientQPS, 1)
 }
 
+func (counter *Counter) IncrTxConn() {
+	atomic.AddInt64(&counter.TxConnNum, 1)
+}
+
+func (counter *Counter) DecrTxConn() {
+	atomic.AddInt64(&counter.TxConnNum, -1)
+}
+
 func (counter *Counter) IncrErrLogTotal() {
 	atomic.AddInt64(&counter.ErrLogTotal, 1)
 }
@@ -92,8 +101,8 @@ func (counter *Counter) IncrSlowLogTotal() {
 
 //flush the count per second
 func (counter *Counter) FlushCounter() {
-	golog.RunInfo("Proxy Info ==> QPS:%d, Client Connect:%d, Error:%d, Slow:%d Connection Info ==> Used:%d, Cached:%d, Idle:%d", counter.OldClientQPS, counter.ClientConns, counter.ErrLogTotal, counter.SlowLogTotal,
-		counter.NodeInfo.ConnectInUse, counter.NodeInfo.ConnectCache, counter.NodeInfo.ConnectIdle)
+	golog.RunInfo("Proxy Info ==> QPS:%d, Client Connect:%d, Error:%d, Slow:%d Connection Info ==> Used:%d, TxConn:%d, Cached:%d, Idle:%d", counter.OldClientQPS, counter.ClientConns, counter.ErrLogTotal, counter.SlowLogTotal,
+		counter.ConnectInUse, counter.TxConnNum, counter.NodeInfo.ConnectCache, counter.NodeInfo.ConnectIdle)
 
 	atomic.StoreInt64(&counter.OldClientQPS, counter.ClientQPS)
 	atomic.StoreInt64(&counter.OldErrLogTotal, counter.ErrLogTotal)

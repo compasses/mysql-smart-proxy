@@ -103,27 +103,24 @@ func NewServer(cfg *config.Config) (*Server, error) {
 
 func (s *Server) flushCounter() {
 	for {
-		var totalInUse int64 = 0
 		var totalCache int64 = 0
 		var totalIdel int64 = 0
 		time.Sleep(1 * time.Second)
 		for _, node := range s.nodes {
 			if node.Master != nil {
-				totalInUse += node.Master.ConnectInUse
-				totalCache += node.Master.ConnectCache
-				totalIdel += node.Master.ConnectIdle
+				totalCache += node.Master.CacheConnCount()
+				totalIdel += node.Master.IdleConnCount()
 			}
 
 			for _, sl := range node.Slave {
 				if sl == nil {
 					continue
 				}
-				totalInUse += sl.ConnectInUse
-				totalCache += sl.ConnectCache
-				totalIdel += sl.ConnectIdle
+				totalCache += sl.CacheConnCount()
+				totalIdel += sl.IdleConnCount()
 			}
 		}
-		s.counter.FlushDBConnectionInfo(totalInUse, totalCache, totalIdel)
+		s.counter.FlushDBConnectionInfo(totalCache, totalIdel)
 		s.counter.FlushCounter()
 	}
 }
@@ -148,10 +145,9 @@ func (s *Server) newClientConn(co net.Conn) *ClientConn {
 	c.connectionId = atomic.AddUint32(&baseConnId, 1)
 
 	c.status = mysql.SERVER_STATUS_AUTOCOMMIT
+	c.txConn = nil
 
 	c.salt, _ = mysql.RandomBuf(20)
-
-	c.txConns = make(map[*Node]*BackendConn)
 
 	c.closed = false
 

@@ -46,7 +46,7 @@ type ClientConn struct {
 
 	salt []byte
 
-	txConns map[*Node]*BackendConn
+	txConn *BackendConn
 
 	closed       bool
 	lastInsertId int64
