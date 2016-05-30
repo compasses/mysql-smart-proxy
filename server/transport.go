@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/compasses/mysql-smart-proxy/core/golog"
@@ -47,6 +48,7 @@ func (trans *Transport) ExecServerEnd(data []byte) error {
 	} else {
 		// just use the default node
 		backConn, err = trans.clientend.GetBackendConn("node1")
+		trans.clientend.proxy.counter.IncrConnectInUse()
 	}
 
 	if err != nil {
@@ -54,7 +56,6 @@ func (trans *Transport) ExecServerEnd(data []byte) error {
 		return err
 	}
 
-	trans.clientend.proxy.counter.IncrConnectInUse()
 	defer func() {
 		if trans.clientend.txConn == nil {
 			// not in transaction
@@ -69,7 +70,7 @@ func (trans *Transport) ExecServerEnd(data []byte) error {
 		cid:  backConn.Conn.ConnectionId(),
 	}
 
-	golog.Info("Transport", "ExecServerEnd", "Start transfer", server.cid, server.info)
+	golog.Info("Transport", "ExecServerEnd", "Start transfer", server.cid, server.info, "Client Data:", hack.String(data))
 
 	var isQuery bool
 	queryStr := ""
@@ -78,8 +79,16 @@ func (trans *Transport) ExecServerEnd(data []byte) error {
 	case mysql.COM_QUERY:
 		isQuery = true
 		queryStr = hack.String(data[5:])
+		if strings.ToLower(queryStr) == "begin" {
+			//it's a transaction
+			if trans.clientend.txConn == nil {
+				trans.clientend.txConn = backConn
+				trans.clientend.proxy.counter.IncrTxConn()
+			}
+		}
 		break
 	case mysql.COM_STMT_PREPARE:
+		//transaction begin
 		if trans.clientend.txConn == nil {
 			trans.clientend.txConn = backConn
 			trans.clientend.proxy.counter.IncrTxConn()
@@ -91,7 +100,7 @@ func (trans *Transport) ExecServerEnd(data []byte) error {
 		golog.Info("Transport", "NewTransport", "Select DB", trans.Client.cid, trans.clientend.db)
 		backConn.UseDB(trans.clientend.db)
 		trans.dbSelected = true
-	} else {
+	} else if trans.dbSelected == false {
 		if isQuery {
 			golog.Warn("Transport", "NewTransport", "No DB select for client", trans.clientend.connectionId, hack.String(data[5:]))
 		}

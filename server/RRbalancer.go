@@ -50,7 +50,7 @@ func Gcd(ary []int) int {
 	return min
 }
 
-func (n *Node) InitBalancer() {
+func (n *Node) InitRRBalancer() {
 	var sum int
 	n.LastSlaveIndex = 0
 	gcd := Gcd(n.SlaveWeights)

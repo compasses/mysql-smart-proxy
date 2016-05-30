@@ -24,6 +24,7 @@ import (
 	"github.com/compasses/mysql-smart-proxy/config"
 	"github.com/compasses/mysql-smart-proxy/core/errors"
 	"github.com/compasses/mysql-smart-proxy/core/golog"
+	"stathat.com/c/consistent"
 )
 
 const (
@@ -39,11 +40,11 @@ type Node struct {
 	sync.RWMutex
 	Master *DB
 
-	Slave          []*DB
-	LastSlaveIndex int
-	RoundRobinQ    []int
-	SlaveWeights   []int
-
+	Slave            []*DB
+	LastSlaveIndex   int
+	RoundRobinQ      []int
+	SlaveWeights     []int
+	HashCircle       *consistent.Consistent
 	DownAfterNoAlive time.Duration
 
 	LastMasterPing int64
@@ -330,7 +331,10 @@ func (n *Node) DownSlave(addr string, state int32) error {
 func (n *Node) ParseMaster(masterStr string) error {
 	var err error
 	if len(masterStr) == 0 {
-		return errors.ErrNoMasterDB
+		if n.Cfg.WorkMode == 0 {
+			return errors.ErrNoMasterDB
+		}
+		return nil
 	}
 
 	n.Master, err = n.OpenDB(masterStr)
@@ -364,11 +368,20 @@ func (n *Node) ParseSlave(slaveStr string) error {
 			weight = 1
 		}
 		n.SlaveWeights = append(n.SlaveWeights, weight)
-		if db, err = n.OpenDB(addrAndWeight[0]); err != nil {
+		if db, err = n.OpenDB(strings.Trim(addrAndWeight[0], " ")); err != nil {
 			return err
 		}
 		n.Slave = append(n.Slave, db)
 	}
-	n.InitBalancer()
 	return nil
+}
+
+func (n *Node) InitBalancer() {
+	if n.Cfg.WorkMode == 0 && len(n.Slave) > 0 {
+		n.InitRRBalancer()
+	} else if n.Cfg.WorkMode == 1 {
+		n.InitCHBalancer()
+	} else {
+		golog.Error("Node", "InitBalancer", "unknow work mode", uint32(n.Cfg.WorkMode))
+	}
 }

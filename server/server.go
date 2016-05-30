@@ -42,12 +42,15 @@ type Server struct {
 func (s *Server) parseNode(cfg config.NodeConfig) (*Node, error) {
 	var err error
 	n := new(Node)
+	n.HashCircle = nil
 	n.Cfg = cfg
-
+	golog.Info("Server", "parseNode", " work mode", uint32(cfg.WorkMode), config.WorkMode[cfg.WorkMode])
 	n.DownAfterNoAlive = time.Duration(cfg.DownAfterNoAlive) * time.Second
 	err = n.ParseMaster(cfg.Master)
 
 	err = n.ParseSlave(cfg.Slave)
+
+	n.InitBalancer()
 
 	go n.CheckNode()
 

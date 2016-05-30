@@ -18,10 +18,21 @@ import "github.com/compasses/mysql-smart-proxy/core/golog"
 
 func (c *ClientConn) GetBackendConn(nodeName string) (co *BackendConn, err error) {
 	node := c.proxy.GetNode(nodeName)
-	return c.getBackendConn(node, false)
+	return c.getBackendConn(node)
 }
 
-func (c *ClientConn) getBackendConn(n *Node, fromSlave bool) (co *BackendConn, err error) {
+func (c *ClientConn) getBackendConn(n *Node) (co *BackendConn, err error) {
+	if n.Cfg.WorkMode == 0 {
+		return c.getMastetSlaveConn(n)
+	}
+	return c.getClusterConn(n)
+}
+
+func (c *ClientConn) getClusterConn(n *Node) (co *BackendConn, err error) {
+	return n.GetConsistenHashConn(c.Info())
+}
+
+func (c *ClientConn) getMastetSlaveConn(n *Node) (co *BackendConn, err error) {
 	co, err = n.GetMasterConn()
 	if err != nil {
 		golog.Warn("Server", "getBackendConn from master", err.Error(), 0)

@@ -42,7 +42,7 @@ const (
 
 const banner string = `
 
-ESHOP Load Balancer
+MySQL Smart Proxy
 
 `
 
