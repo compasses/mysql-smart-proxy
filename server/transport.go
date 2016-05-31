@@ -9,12 +9,12 @@ import (
 	"time"
 
 	"github.com/compasses/mysql-smart-proxy/core/golog"
+	"github.com/compasses/mysql-smart-proxy/core/hack"
 	"github.com/compasses/mysql-smart-proxy/mysql"
-	"github.com/siddontang/mixer/hack"
 )
 
 type Transport struct {
-	Client     TransPipe
+	Client     *TransPipe
 	dbSelected bool
 	clientend  *ClientConn
 }
@@ -29,7 +29,7 @@ func NewTransport(c *ClientConn) (*Transport, error) {
 
 	t := new(Transport)
 
-	t.Client = TransPipe{
+	t.Client = &TransPipe{
 		pipe: c.c,
 		info: c.Info(),
 		cid:  c.connectionId,
@@ -39,7 +39,7 @@ func NewTransport(c *ClientConn) (*Transport, error) {
 	return t, nil
 }
 
-func (trans *Transport) ExecServerEnd(data []byte) error {
+func (trans *Transport) ExecServerEnd(data []byte, needResponse bool) error {
 	//got backend connection
 	var backConn *BackendConn
 	var err error
@@ -121,6 +121,10 @@ func (trans *Transport) ExecServerEnd(data []byte) error {
 		return err
 	}
 
+	//no need response
+	if !needResponse {
+		return nil
+	}
 	//read response from server
 	data, err = server.ReadServerRaw(cmd)
 	golog.Debug("Transport", "Run", "server read ", server.cid, data)
@@ -191,12 +195,24 @@ func (trans *Transport) Run() {
 				// }
 				trans.Client.WriteOK()
 				continue
+			case mysql.COM_STMT_CLOSE:
+			case mysql.COM_STMT_SEND_LONG_DATA:
+				err := trans.ExecServerEnd(data, false)
+				if err != nil {
+					return
+				}
+				continue
 			default:
-				err := trans.ExecServerEnd(data)
+				err := trans.ExecServerEnd(data, true)
 				if err != nil {
 					return
 				}
 			}
+		} else {
+			golog.Warn("Transport", "Run", "client error data ", trans.Client.cid, data)
+			trans.clientend.proxy.counter.IncrErrLogTotal()
+			return
+
 		}
 	}
 }

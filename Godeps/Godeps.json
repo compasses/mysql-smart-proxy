@@ -1,0 +1,11 @@
+{
+	"ImportPath": "github.com/compasses/mysql-smart-proxy",
+	"GoVersion": "go1.6",
+	"GodepVersion": "v72",
+	"Deps": [
+		{
+			"ImportPath": "stathat.com/c/consistent",
+			"Rev": "748f01b59d1b2218efe39513039e9ee31266d7c7"
+		}
+	]
+}

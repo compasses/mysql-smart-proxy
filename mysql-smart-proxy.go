@@ -16,6 +16,8 @@ package main
 import (
 	"flag"
 	"fmt"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"path"
@@ -120,6 +122,12 @@ func main() {
 		golog.GlobalSysLogger.Close()
 		golog.GlobalSqlLogger.Close()
 		svr.Close()
+	}()
+
+	//for debug serious issues
+	go func() {
+		err := http.ListenAndServe(":6033", nil)
+		golog.Error("Server", "Main", err.Error(), 0)
 	}()
 
 	svr.Run()
