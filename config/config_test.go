@@ -29,45 +29,27 @@ password : root
 log_level : error
 
 nodes :
-- 
-  name : node1 
+-
+  name : node1
   down_after_noalive : 300
   max_conns_limit : 16
   user: root
   password: root
   master : 127.0.0.1:3306
   slave : 127.0.0.1:4306
-- 
+-
   name : node2
   user: root
   master : 127.0.0.1:3307
 
-- 
-  name : node3 
+-
+  name : node3
   down_after_noalive : 300
   max_conns_limit : 16
   user: root
   password: root
   master : 127.0.0.1:3308
 
-schema :
-  db : MSP 
-  nodes: [node1, node2, node3]
-  default: node1
-  shard:
-    -   
-      table: test_shard_hash
-      key: id
-      nodes: [node1, node2, node3]
-      type: hash
-      locations: [4,4,4]
-    -   
-      table: test_shard_range
-      key: id
-      type: range
-      nodes: [node2, node3]
-      locations: [4,4]
-      table_row_limit: 10000
 `)
 
 	cfg, err := ParseConfigData(testConfigData)
@@ -104,47 +86,6 @@ schema :
 
 	if !reflect.DeepEqual(cfg.Nodes[1], testNode_2) {
 		t.Fatal("node2 must equal")
-	}
-
-	testShard_1 := ShardConfig{
-		Table:         "test_shard_hash",
-		Key:           "id",
-		Nodes:         []string{"node1", "node2", "node3"},
-		Locations:     []int{4, 4, 4},
-		Type:          "hash",
-		TableRowLimit: 0,
-	}
-	if !reflect.DeepEqual(cfg.Schema.ShardRule[0], testShard_1) {
-		fmt.Printf("%v\n", cfg.Schema.ShardRule[0])
-		t.Fatal("ShardConfig0 must equal")
-	}
-
-	testShard_2 := ShardConfig{
-		Table:         "test_shard_range",
-		Key:           "id",
-		Nodes:         []string{"node2", "node3"},
-		Type:          "range",
-		Locations:     []int{4, 4},
-		TableRowLimit: 10000,
-	}
-	if !reflect.DeepEqual(cfg.Schema.ShardRule[1], testShard_2) {
-		fmt.Printf("%v\n", cfg.Schema.ShardRule[1])
-		t.Fatal("ShardConfig1 must equal")
-	}
-
-	if 2 != len(cfg.Schema.ShardRule) {
-		t.Fatal("ShardRule must 2")
-	}
-
-	testSchema := SchemaConfig{
-		DB:        "MSP",
-		Nodes:     []string{"node1", "node2", "node3"},
-		Default:   "node1",
-		ShardRule: []ShardConfig{testShard_1, testShard_2},
-	}
-
-	if !reflect.DeepEqual(cfg.Schema, testSchema) {
-		t.Fatal("schema must equal")
 	}
 
 	if cfg.LogLevel != "error" || cfg.User != "root" ||

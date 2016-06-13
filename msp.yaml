@@ -7,9 +7,9 @@ password : Initial0
 
 # if set log_path, the sql log will write into log_path/sql.log,the system log
 # will write into log_path/sys.log
-#log_path : .
+#log_path : ./log
 # log level[debug|info|warn|error],default error
-log_level : error
+log_level : info
 
 # if set log_sql(1|0) off(0),the sql log will not output
 log_sql: 0
@@ -33,7 +33,7 @@ nodes :
     password : Initial0
 
     # master represents a real mysql master servermycnpvgvb1ep016.sapanywhere.sap.corp
-    master : mycnpvgvb1ep015.sapanywhere.sap.corp:3306
+    master : cnpvgvb1ep016.pvgl.sap.corp:3306
 
     # slave represents a real mysql salve server,and the number after '@' is
     # read load weight of this slave.

@@ -25,7 +25,7 @@ import (
 var testServerOnce sync.Once
 var testServer *Server
 var testDBOnce sync.Once
-var testDB *backend.DB
+var testDB *DB
 
 var testConfigData = []byte(`
 addr : 127.0.0.1:9696
@@ -77,7 +77,7 @@ func newTestDB(t *testing.T) *DB {
 	newTestServer(t)
 
 	f := func() {
-		testDB, _ = backend.Open("127.0.0.1:3601", "root", "", "MSP", 100)
+		testDB, _ = Open("127.0.0.1:3601", "root", "", "MSP", 100)
 	}
 
 	testDBOnce.Do(f)
